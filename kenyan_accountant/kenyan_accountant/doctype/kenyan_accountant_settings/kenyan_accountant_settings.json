@@ -1,0 +1,162 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2026-08-25 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "setup_status",
+  "accounts_section",
+  "input_vat_account",
+  "output_vat_account",
+  "vat_payable_account",
+  "column_break_accounts",
+  "vat_credit_account",
+  "wht_receivable_account",
+  "wht_payable_account",
+  "templates_section",
+  "sales_vat_template",
+  "purchase_vat_template",
+  "purchase_vat_inclusive_template",
+  "review_section",
+  "reviewed"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Not Started",
+   "fieldname": "setup_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Setup Status",
+   "options": "Not Started\nDraft Configuration\nReviewed\nActivated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Core Tax Accounts"
+  },
+  {
+   "description": "Eligible recoverable VAT on purchases",
+   "fieldname": "input_vat_account",
+   "fieldtype": "Link",
+   "label": "Input VAT Account",
+   "options": "Account"
+  },
+  {
+   "description": "VAT charged on taxable sales",
+   "fieldname": "output_vat_account",
+   "fieldtype": "Link",
+   "label": "Output VAT Account",
+   "options": "Account"
+  },
+  {
+   "description": "Net VAT due after settlement",
+   "fieldname": "vat_payable_account",
+   "fieldtype": "Link",
+   "label": "VAT Payable to KRA Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Eligible excess input VAT",
+   "fieldname": "vat_credit_account",
+   "fieldtype": "Link",
+   "label": "VAT Credit / Recoverable Account",
+   "options": "Account"
+  },
+  {
+   "description": "WHT deducted from this company by customers/payers",
+   "fieldname": "wht_receivable_account",
+   "fieldtype": "Link",
+   "label": "WHT Receivable Account",
+   "options": "Account"
+  },
+  {
+   "description": "WHT withheld by this company from suppliers",
+   "fieldname": "wht_payable_account",
+   "fieldtype": "Link",
+   "label": "WHT Payable to KRA Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "templates_section",
+   "fieldtype": "Section Break",
+   "label": "VAT Templates"
+  },
+  {
+   "fieldname": "sales_vat_template",
+   "fieldtype": "Link",
+   "label": "Sales VAT Template",
+   "options": "Sales Taxes and Charges Template"
+  },
+  {
+   "fieldname": "purchase_vat_template",
+   "fieldtype": "Link",
+   "label": "Purchase VAT Template",
+   "options": "Purchase Taxes and Charges Template"
+  },
+  {
+   "description": "Use where the entered supplier price already includes VAT",
+   "fieldname": "purchase_vat_inclusive_template",
+   "fieldtype": "Link",
+   "label": "Purchase VAT Template (Inclusive)",
+   "options": "Purchase Taxes and Charges Template"
+  },
+  {
+   "fieldname": "review_section",
+   "fieldtype": "Section Break",
+   "label": "Review & Activation"
+  },
+  {
+   "description": "Tick once a responsible accountant has confirmed the accounts, VAT templates and WHT categories above are correct for this business, then save.",
+   "fieldname": "reviewed",
+   "fieldtype": "Check",
+   "label": "Reviewed"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-25 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Kenyan Accountant",
+ "name": "Kenyan Accountant Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
