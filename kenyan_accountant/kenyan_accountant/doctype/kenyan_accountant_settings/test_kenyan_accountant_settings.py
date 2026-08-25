@@ -8,7 +8,19 @@ from kenyan_accountant.setup.accounts import CORE_TAX_ACCOUNTS
 from kenyan_accountant.setup.utils import TEST_COMPANY
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
-IGNORE_TEST_RECORD_DEPENDENCIES = []
+
+# Every field this doctype Links to (Company, Account x6, the two tax charge
+# templates) is fully populated by our own before_tests/run_setup - none of it
+# needs frappe's generic "_Test X" fixture auto-generator. Left unignored,
+# "Company" recurses into ERPNext's whole India-centric _Test Company bootstrap
+# (erpnext.tests.utils.BootStrapTestData), which is unrelated to this app and
+# breaks on sites that already have their own Price Lists/Fiscal Years, etc.
+IGNORE_TEST_RECORD_DEPENDENCIES = [
+	"Company",
+	"Account",
+	"Sales Taxes and Charges Template",
+	"Purchase Taxes and Charges Template",
+]
 
 
 class IntegrationTestKenyanAccountantSettings(IntegrationTestCase):
