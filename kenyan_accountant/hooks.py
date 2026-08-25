@@ -1,5 +1,5 @@
 app_name = "kenyan_accountant"
-app_title = "Kenyan Accountant"
+app_title = "Accountant"
 app_publisher = "Royce Technologies LTD"
 app_description = "Kenya Chart of Accounts, VAT and WHT configuration for ERPNext"
 app_email = "developer@roycetechnologies.co.ke"
@@ -18,7 +18,7 @@ add_to_apps_screen = [
 	{
 		"name": "kenyan_accountant",
 		"logo": "/assets/kenyan_accountant/logo.svg",
-		"title": "Kenyan Accountant",
+		"title": "Accountant",
 		"route": "/app/kenyan-accountant-settings",
 		"has_permission": "kenyan_accountant.check_app_permission",
 	}
