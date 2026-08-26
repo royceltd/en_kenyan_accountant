@@ -71,6 +71,32 @@ def create_vat_templates(company, accounts):
 	return result
 
 
+def disable_erpnext_default_kenya_tax_templates(company):
+	"""ERPNext's own setup wizard, for any company whose country is Kenya, auto-
+	creates a single "Kenya Tax" Sales/Purchase template sharing one flat "VAT"
+	account for both directions (erpnext/setup/setup_wizard/data/country_wise_tax
+	.json - not something this app controls). It has no Input/Output split, no
+	WHT, no settlement account - and sitting next to our own KE - Standard VAT
+	16% templates it just leaves the accountant with two competing "default"
+	choices, exactly the confusion this app exists to prevent.
+
+	We never delete it - its underlying "VAT" account may already have real
+	transactions posted against it (spec section 24: no destructive deletion of
+	tax configuration). Disabling it is enough to stop it being offered as a
+	choice on new invoices; existing ones are untouched.
+
+	Returns the names of any templates this disabled (empty if none were found
+	or they were already disabled).
+	"""
+	disabled = []
+	for doctype in ("Sales Taxes and Charges Template", "Purchase Taxes and Charges Template"):
+		name = frappe.db.get_value(doctype, {"title": "Kenya Tax", "company": company}, "name")
+		if name and not frappe.db.get_value(doctype, name, "disabled"):
+			frappe.db.set_value(doctype, name, "disabled", 1)
+			disabled.append(name)
+	return disabled
+
+
 def _get_or_create_tax_template(
 	doctype, company, title, account_head, rate, description, included_in_print_rate=0, is_purchase=False
 ):

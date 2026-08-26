@@ -6,7 +6,11 @@ from frappe import _
 from frappe.model.document import Document
 
 from kenyan_accountant.setup.accounts import create_core_tax_accounts
-from kenyan_accountant.setup.vat import create_tax_categories, create_vat_templates
+from kenyan_accountant.setup.vat import (
+	create_tax_categories,
+	create_vat_templates,
+	disable_erpnext_default_kenya_tax_templates,
+)
 from kenyan_accountant.setup.wht import create_wht_categories
 
 # Kept in one place because run_setup() both reads and writes these fields by
@@ -55,11 +59,16 @@ class KenyanAccountantSettings(Document):
 
 		create_wht_categories(self.company, accounts["wht_payable_account"])
 
+		# ERPNext's own country-default "Kenya Tax" template, if this company has
+		# one, competes with the templates just created above - disable it so
+		# the accountant isn't left choosing between two "defaults".
+		disabled_defaults = disable_erpnext_default_kenya_tax_templates(self.company)
+
 		if self.setup_status == "Not Started":
 			self.setup_status = "Draft Configuration"
 
 		self.save(ignore_permissions=True)
-		return {"status": self.setup_status}
+		return {"status": self.setup_status, "disabled_defaults": disabled_defaults}
 
 	@frappe.whitelist()
 	def activate(self):

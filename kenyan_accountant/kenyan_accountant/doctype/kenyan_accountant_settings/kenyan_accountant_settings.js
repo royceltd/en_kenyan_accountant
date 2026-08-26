@@ -14,7 +14,20 @@ frappe.ui.form.on("Kenyan Accountant Settings", {
 					doc: frm.doc,
 					freeze: true,
 					freeze_message: __("Creating Kenya accounts, VAT templates and WHT categories..."),
-					callback: () => frm.reload_doc(),
+					callback: (r) => {
+						frm.reload_doc();
+						const disabled = r.message && r.message.disabled_defaults;
+						if (disabled && disabled.length) {
+							frappe.msgprint({
+								title: __("Default ERPNext Kenya Tax Templates Disabled"),
+								indicator: "orange",
+								message: __(
+									"ERPNext's own generic 'Kenya Tax' template(s) were already set up for this company. To avoid two competing defaults, they've been disabled (not deleted) in favour of the templates above: {0}",
+									[disabled.join(", ")]
+								),
+							});
+						}
+					},
 				});
 			});
 		}

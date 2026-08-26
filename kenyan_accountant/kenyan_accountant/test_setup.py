@@ -13,7 +13,12 @@ from frappe.tests import IntegrationTestCase
 
 from kenyan_accountant.setup.accounts import CORE_TAX_ACCOUNTS, create_core_tax_accounts
 from kenyan_accountant.setup.utils import TEST_COMPANY
-from kenyan_accountant.setup.vat import TAX_CATEGORIES, create_tax_categories, create_vat_templates
+from kenyan_accountant.setup.vat import (
+	TAX_CATEGORIES,
+	create_tax_categories,
+	create_vat_templates,
+	disable_erpnext_default_kenya_tax_templates,
+)
 from kenyan_accountant.setup.wht import WHT_CATEGORIES, create_wht_categories
 
 
@@ -156,3 +161,38 @@ class TestCreateWhtCategories(IntegrationTestCase):
 		self.assertEqual(
 			len([row for row in category.accounts if row.company in (TEST_COMPANY, other_company.name)]), 2
 		)
+
+
+class TestDisableErpnextDefaultKenyaTaxTemplates(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_disables_erpnexts_own_kenya_tax_templates(self):
+		"""TEST_COMPANY has country=Kenya, so Company's own controller already
+		auto-created ERPNext's generic 'Kenya Tax' Sales/Purchase templates
+		(erpnext.setup.doctype.company.company -> setup_taxes_and_charges) -
+		exactly the real-world scenario this function exists to clean up."""
+		for doctype in ("Sales Taxes and Charges Template", "Purchase Taxes and Charges Template"):
+			name = frappe.db.get_value(doctype, {"title": "Kenya Tax", "company": TEST_COMPANY}, "name")
+			self.assertTrue(name, f"expected setUp to have an ERPNext-default Kenya Tax {doctype}")
+			self.assertFalse(frappe.db.get_value(doctype, name, "disabled"))
+
+		disabled = disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
+		self.assertEqual(len(disabled), 2)
+
+		for doctype in ("Sales Taxes and Charges Template", "Purchase Taxes and Charges Template"):
+			name = frappe.db.get_value(doctype, {"title": "Kenya Tax", "company": TEST_COMPANY}, "name")
+			self.assertTrue(frappe.db.get_value(doctype, name, "disabled"))
+
+	def test_does_not_touch_our_own_templates(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_vat_templates(TEST_COMPANY, accounts)
+		disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
+
+		sales = frappe.get_doc("Sales Taxes and Charges Template", templates["sales_vat_template"])
+		self.assertFalse(sales.disabled)
+
+	def test_is_idempotent(self):
+		disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
+		second_run = disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
+		self.assertEqual(second_run, [])
