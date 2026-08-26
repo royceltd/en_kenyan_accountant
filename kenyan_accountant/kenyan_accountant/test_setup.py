@@ -147,4 +147,12 @@ class TestCreateWhtCategories(IntegrationTestCase):
 
 		category = frappe.get_doc("Tax Withholding Category", WHT_CATEGORIES[0][0])
 		companies = {row.company for row in category.accounts}
-		self.assertEqual(companies, {TEST_COMPANY, other_company.name})
+		# Superset, not equality: this category is shared/global and may already
+		# carry rows for real companies from real (non-test) usage of the app -
+		# what matters is that *our two* companies both got a row, not that
+		# they're the only rows on the document.
+		self.assertTrue({TEST_COMPANY, other_company.name} <= companies)
+		# And still exactly one row per company - no duplicate for either.
+		self.assertEqual(
+			len([row for row in category.accounts if row.company in (TEST_COMPANY, other_company.name)]), 2
+		)
