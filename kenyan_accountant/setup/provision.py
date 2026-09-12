@@ -43,9 +43,27 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 	"""Creates the Company if it doesn't already exist, and returns its name
 	either way. country/currency default to Kenya/KES -- every Royce Kenya
 	tenant is Kenyan by definition; the parameters exist for tests, not because
-	a real caller is expected to override them."""
+	a real caller is expected to override them.
+
+	Also runs ERPNext's own setup-wizard fixture installer first, on a genuinely
+	fresh site -- found by testing an actual brand-new site, not assumed: Company's
+	own on_update hook (create_default_warehouses) unconditionally expects a
+	"Transit" Warehouse Type to already exist, and that record (along with a batch
+	of other ERPNext preset master data -- Designations, Sales Stages, UOMs, ...)
+	is normally seeded by the setup wizard's own install_fixtures.install(), which
+	this platform's fully automated provisioning never runs (there is no human to
+	answer it). A site with no Company yet is exactly a site that also never went
+	through the wizard, so this is the right place to run it once instead of
+	patching around the one symptom (the missing Warehouse Type) that happened to
+	surface first.
+	"""
 	if frappe.db.exists("Company", company_name):
 		return company_name
+
+	if not frappe.is_setup_complete():
+		from erpnext.setup.setup_wizard.operations.install_fixtures import install as install_erpnext_fixtures
+
+		install_erpnext_fixtures(country=country)
 
 	frappe.get_doc(
 		{

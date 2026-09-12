@@ -44,6 +44,19 @@ class TestProvisionCompany(IntegrationTestCase):
 		self.assertEqual(first, second)
 		self.assertEqual(frappe.db.count("Company", {"company_name": NEW_COMPANY}), 1)
 
+	def test_seeds_the_setup_wizards_own_fixtures_first(self):
+		"""Guards the real bug this function exists to fix: Company's own
+		on_update hook (create_default_warehouses) unconditionally needs a
+		"Transit" Warehouse Type to exist, normally seeded by the setup wizard --
+		which fully automated provisioning never runs. Found against a genuinely
+		fresh real site, not caught here: this shared test bench already has it
+		from Frappe's own test-site bootstrap, so this assertion mainly documents
+		the expectation and would catch a regression that removed the call
+		entirely, not the original bug itself -- see provision_company's own
+		comment for the real story."""
+		provision_company(NEW_COMPANY)
+		self.assertTrue(frappe.db.exists("Warehouse Type", "Transit"))
+
 
 class TestProvision(IntegrationTestCase):
 	def tearDown(self):
