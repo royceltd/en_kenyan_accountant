@@ -5,6 +5,8 @@
 provisioning pipeline calls for a site that has no Company yet. See
 kenyan_accountant/test_setup.py for the already-has-a-Company tests these build on."""
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
@@ -43,6 +45,37 @@ class TestProvisionCompany(IntegrationTestCase):
 		second = provision_company(NEW_COMPANY)
 		self.assertEqual(first, second)
 		self.assertEqual(frappe.db.count("Company", {"company_name": NEW_COMPANY}), 1)
+
+	def test_marks_frappe_and_erpnext_setup_complete_on_a_fresh_site(self):
+		"""Guards a real bug an actual customer hit in production: frappe.
+		is_setup_complete() -- what the desk uses to decide whether to redirect a
+		fresh login to /desk/setup-wizard/0 instead of the desk itself -- checks
+		Installed Application.is_setup_complete per app, not whether a Company
+		exists. Creating one by hand (as provision_company itself does) never
+		touched that flag, so every real signup was landing a brand-new customer
+		on the setup wizard instead of their own desk.
+
+		Forces is_setup_complete() to report False -- this shared test bench
+		already has it True from its own history, the same reason
+		test_seeds_the_setup_wizards_own_fixtures_first can't reproduce the
+		Warehouse Type bug it guards either -- so this actually exercises the
+		branch instead of silently skipping it."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete") as mock_enable:
+			provision_company(NEW_COMPANY)
+
+		mock_enable.assert_any_call("frappe")
+		mock_enable.assert_any_call("erpnext")
+
+	def test_does_not_touch_the_wizard_flag_on_an_already_set_up_site(self):
+		"""The flip side of the test above: a site that already has a Company
+		(this shared test bench's real state, same as any already-configured real
+		tenant) must not have this function re-poke a flag that's either already
+		correct or, worse, someone's own site config the wizard already set up."""
+		provision_company(NEW_COMPANY)  # first call: real Company created
+		with patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete") as mock_enable:
+			provision_company(NEW_COMPANY)  # second call: already exists, early return
+		mock_enable.assert_not_called()
 
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own

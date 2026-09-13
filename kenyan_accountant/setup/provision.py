@@ -56,11 +56,21 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 	through the wizard, so this is the right place to run it once instead of
 	patching around the one symptom (the missing Warehouse Type) that happened to
 	surface first.
+
+	And, once the Company exists: tells Frappe the wizard is done, so a real
+	customer logging in for the first time lands on their desk, not the wizard
+	itself. Found by an actual customer signing up for real and landing on
+	/desk/setup-wizard/0 instead: frappe.is_setup_complete() (which the desk uses
+	to decide whether to redirect there) does not care whether a Company exists at
+	all -- it only checks a separate `Installed Application.is_setup_complete` flag
+	per app, which the wizard's own completion handler sets and nothing else does.
+	Creating a Company by hand, however completely, never touches that flag.
 	"""
 	if frappe.db.exists("Company", company_name):
 		return company_name
 
-	if not frappe.is_setup_complete():
+	first_company = not frappe.is_setup_complete()
+	if first_company:
 		from erpnext.setup.setup_wizard.operations.install_fixtures import install as install_erpnext_fixtures
 
 		install_erpnext_fixtures(country=country)
@@ -74,6 +84,20 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 			"country": country,
 		}
 	).insert(ignore_permissions=True)
+
+	if first_company:
+		# The exact two apps frappe.is_setup_complete() checks -- see its own
+		# implementation in frappe/__init__.py. Deliberately the small, standalone
+		# flag-setter (frappe/desk/page/setup_wizard/setup_wizard.py), not the
+		# wizard's full completion pipeline (process_setup_stages) -- that also
+		# creates a default user, applies telemetry preferences, sets language
+		# defaults, etc., none of which apply to a tenant that was never going to
+		# see the wizard's own UI at all.
+		from frappe.desk.page.setup_wizard.setup_wizard import enable_setup_wizard_complete
+
+		enable_setup_wizard_complete("frappe")
+		enable_setup_wizard_complete("erpnext")
+
 	return company_name
 
 
