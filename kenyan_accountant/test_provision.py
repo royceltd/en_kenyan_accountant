@@ -90,13 +90,20 @@ class TestProvisionCompany(IntegrationTestCase):
 		into wizard-init logic in a loop -- confirmed live: `bench clear-cache`
 		alone broke an actual stuck tenant's loop instantly. frappe's own
 		wizard-completion pipeline always calls this right after setting the same
-		flag, for this exact reason."""
+		flag, for this exact reason.
+
+		Asserts a no-arg call specifically, not just "called" -- install_fixtures
+		itself (exercised here too, since first_company is forced True) makes its
+		own incidental frappe.clear_cache(doctype=...) calls as an ordinary side
+		effect of inserting master data, same as any other document insert. Those
+		are routine and not what this test guards; the global clear_cache() this
+		function adds is."""
 		with patch("frappe.is_setup_complete", return_value=False), \
 			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"), \
 			patch("frappe.clear_cache") as mock_clear_cache:
 			provision_company(NEW_COMPANY)
 
-		mock_clear_cache.assert_called_once()
+		mock_clear_cache.assert_any_call()
 
 	def test_does_not_clear_cache_on_an_already_set_up_site(self):
 		"""Flip side: an already-configured site's cache shouldn't be blown away
