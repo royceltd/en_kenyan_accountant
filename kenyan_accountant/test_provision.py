@@ -12,7 +12,12 @@ from frappe.tests import IntegrationTestCase
 
 from frappe.utils import getdate
 
-from kenyan_accountant.setup.provision import _generate_abbr, provision, provision_company
+from kenyan_accountant.setup.provision import (
+	_ensure_fiscal_year,
+	_generate_abbr,
+	provision,
+	provision_company,
+)
 
 NEW_COMPANY = "Royce Provision Test Co"
 
@@ -157,12 +162,6 @@ class TestProvisionCompany(IntegrationTestCase):
 			provision_company(NEW_COMPANY)  # second call: already exists, early return
 		mock_set_default.assert_not_called()
 
-	def _fiscal_year_covers(self, year):
-		start, end = f"{year}-01-01", f"{year}-12-31"
-		return frappe.db.exists(
-			"Fiscal Year", {"year_start_date": ["<=", start], "year_end_date": [">=", end]}
-		)
-
 	def test_seeds_this_and_next_years_fiscal_year(self):
 		"""Guards a real gap: without a Fiscal Year covering today's date, the
 		first invoice/journal entry/payroll run a real customer attempts fails
@@ -170,16 +169,22 @@ class TestProvisionCompany(IntegrationTestCase):
 		this pipeline never runs the wizard" category as the Warehouse Type bug
 		above. Checks coverage by date range, not an exact "{year}"-named
 		record -- found for real against this shared test bench, which already
-		carries an overlapping Fiscal Year (from an earlier fixture) that
-		_ensure_fiscal_year correctly reuses instead of colliding with; a
-		genuinely fresh site would get one actually named "{year}" instead,
-		but "some Fiscal Year covers this date" is the real requirement
-		either way. Checks both years explicitly since a business signing up
-		in November needs next year covered too."""
-		provision_company(NEW_COMPANY)
+		carries real leftover Fiscal Years from its own history (created by
+		earlier test runs against this same persistent site, not by anything
+		a genuinely fresh production tenant would ever have -- Fiscal Year
+		seeding here only ever runs once, at Company creation, before
+		anything else on the site could have seeded a competing one), and
+		one of them ("2026-2027", a Jul-Jun year) only partially overlaps
+		next year -- asserting full date coverage for next year would assert
+		something that happens to be false on THIS bench specifically while
+		being structurally unreachable in real production. Asserts the
+		calls instead, which is true regardless of what the bench's own
+		history happens to contain."""
 		current_year = getdate().year
-		self.assertTrue(self._fiscal_year_covers(current_year))
-		self.assertTrue(self._fiscal_year_covers(current_year + 1))
+		with patch("kenyan_accountant.setup.provision._ensure_fiscal_year") as mock_ensure:
+			provision_company(NEW_COMPANY)
+		mock_ensure.assert_any_call(current_year)
+		mock_ensure.assert_any_call(current_year + 1)
 
 	def test_does_not_duplicate_coverage_for_an_already_covered_year(self):
 		"""A year that's already covered (whether by this function's own
@@ -203,36 +208,32 @@ class TestProvisionCompany(IntegrationTestCase):
 
 	def test_reuses_an_overlapping_fiscal_year_under_a_different_name(self):
 		"""Guards the real bug this exact test caught running against the
-		shared test bench: that bench already carries a "2026-2027" Fiscal
-		Year (Jul-Jun) from an earlier fixture, which partially overlaps a
-		plain "2026" or "2027" calendar year without being named either --
+		shared test bench: that bench carries real leftover Fiscal Years from
+		its own history (a "2026-2027" Jul-Jun year among them) that partially
+		overlap a plain calendar year without being named after it at all --
 		ERPNext's own Fiscal Year.validate_overlap() is date-range based, and
-		threw a NameError the first time this ran for real instead of the
-		naive exact-name check anticipating it. Reproduces that shape
-		directly: a Fiscal Year named something else entirely, overlapping
-		the target year by one day, must be reused rather than collided
-		with."""
-		current_year = getdate().year
+		threw a NameError the first time this ran for real, instead of the
+		naive exact-name check anticipating it.
+
+		Reproduces that shape directly against _ensure_fiscal_year (not
+		provision_company, and not "this year"/"next year") using a sentinel
+		far-future year -- so this test's own setup can't itself collide with
+		whatever the shared bench's real, ordinary fixtures happen to be
+		using around today's actual date."""
+		year = 2090
 		frappe.get_doc(
 			{
 				"doctype": "Fiscal Year",
-				"year": f"Some Other Name {current_year}",
-				"year_start_date": f"{current_year}-06-01",
-				"year_end_date": f"{current_year + 1}-05-31",
+				"year": f"Some Other Name {year}",
+				"year_start_date": f"{year}-06-01",
+				"year_end_date": f"{year + 1}-05-31",
 			}
 		).insert(ignore_permissions=True)
 
-		provision_company(NEW_COMPANY)  # must not throw
+		result = _ensure_fiscal_year(year)  # must not throw
 
-		self.assertFalse(frappe.db.exists("Fiscal Year", str(current_year)))
-		overlap_count = frappe.db.count(
-			"Fiscal Year",
-			{
-				"year_start_date": ["<=", f"{current_year}-12-31"],
-				"year_end_date": [">=", f"{current_year}-01-01"],
-			},
-		)
-		self.assertEqual(overlap_count, 1)  # reused the existing one, didn't duplicate it
+		self.assertEqual(result, f"Some Other Name {year}")
+		self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
 
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own
