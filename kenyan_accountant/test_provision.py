@@ -77,6 +77,36 @@ class TestProvisionCompany(IntegrationTestCase):
 			provision_company(NEW_COMPANY)  # second call: already exists, early return
 		mock_enable.assert_not_called()
 
+	def test_clears_cache_after_marking_setup_complete_on_a_fresh_site(self):
+		"""Guards a second real bug, found after the one above shipped: a fresh
+		tenant landed correctly on /desk (not the wizard) but reloaded itself
+		endlessly. enable_setup_wizard_complete() writes via frappe.db.set_value(),
+		a raw SQL write that never invalidates frappe.client_cache -- a separate
+		Redis-backed cache frappe.boot.get_bootinfo() reads via
+		get_setup_wizard_completed_apps(), distinct from the fresh DB query
+		frappe.is_setup_complete() itself uses. Without a clear, every /desk load
+		kept shipping the client stale bootinfo still claiming frappe/erpnext
+		hadn't finished their wizard, which is what sent the desk's own JS back
+		into wizard-init logic in a loop -- confirmed live: `bench clear-cache`
+		alone broke an actual stuck tenant's loop instantly. frappe's own
+		wizard-completion pipeline always calls this right after setting the same
+		flag, for this exact reason."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"), \
+			patch("frappe.clear_cache") as mock_clear_cache:
+			provision_company(NEW_COMPANY)
+
+		mock_clear_cache.assert_called_once()
+
+	def test_does_not_clear_cache_on_an_already_set_up_site(self):
+		"""Flip side: an already-configured site's cache shouldn't be blown away
+		on every subsequent provision_company() call -- clearing it is only ever
+		needed right after the flag itself changes."""
+		provision_company(NEW_COMPANY)  # first call: real Company created
+		with patch("frappe.clear_cache") as mock_clear_cache:
+			provision_company(NEW_COMPANY)  # second call: already exists, early return
+		mock_clear_cache.assert_not_called()
+
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own
 		on_update hook (create_default_warehouses) unconditionally needs a

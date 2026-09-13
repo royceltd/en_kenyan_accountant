@@ -65,6 +65,24 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 	all -- it only checks a separate `Installed Application.is_setup_complete` flag
 	per app, which the wizard's own completion handler sets and nothing else does.
 	Creating a Company by hand, however completely, never touches that flag.
+
+	Also clears frappe's cache after setting that flag -- found by a second real
+	customer, on a genuinely fresh tenant, landing correctly on /desk (not the
+	wizard) but with it endlessly reloading itself every ~1s instead. Root cause:
+	frappe.db.set_value() is a raw SQL write -- it never invalidates
+	frappe.client_cache, a separate Redis-backed cache frappe.is_setup_complete()
+	doesn't use (it queries fresh) but frappe.boot.get_bootinfo() does, via
+	get_setup_wizard_completed_apps()'s frappe.client_cache.get_doc("Installed
+	Applications"). So the server-side redirect check was already correct, but
+	every /desk page load kept shipping the *client* stale bootinfo still saying
+	frappe/erpnext hadn't finished their wizard -- which is what sent the desk's
+	own JS back into wizard-init logic (visible in nginx's access log as a
+	repeating setup_wizard.load_languages call) in a loop. Confirmed live against
+	the actual stuck tenant: `bench clear-cache` alone stopped the loop instantly,
+	with no other change. frappe's own wizard-completion pipeline
+	(update_global_settings/run_post_setup_complete in setup_wizard.py) always
+	calls this right after setting the same flag, for this exact reason -- the
+	minimal enable_setup_wizard_complete()-only fix above just didn't call it too.
 	"""
 	if frappe.db.exists("Company", company_name):
 		return company_name
@@ -97,6 +115,11 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 
 		enable_setup_wizard_complete("frappe")
 		enable_setup_wizard_complete("erpnext")
+
+		# See the docstring above -- without this, the desk keeps serving stale
+		# client_cache bootinfo that still claims frappe/erpnext haven't finished
+		# their wizard, and reload-loops itself trying to resolve that.
+		frappe.clear_cache()
 
 	return company_name
 
