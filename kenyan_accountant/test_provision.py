@@ -157,28 +157,82 @@ class TestProvisionCompany(IntegrationTestCase):
 			provision_company(NEW_COMPANY)  # second call: already exists, early return
 		mock_set_default.assert_not_called()
 
+	def _fiscal_year_covers(self, year):
+		start, end = f"{year}-01-01", f"{year}-12-31"
+		return frappe.db.exists(
+			"Fiscal Year", {"year_start_date": ["<=", start], "year_end_date": [">=", end]}
+		)
+
 	def test_seeds_this_and_next_years_fiscal_year(self):
 		"""Guards a real gap: without a Fiscal Year covering today's date, the
 		first invoice/journal entry/payroll run a real customer attempts fails
 		outright ("no fiscal year found") -- same "wizard normally seeds this,
 		this pipeline never runs the wizard" category as the Warehouse Type bug
-		above, just not yet hit by an actual customer at the time this was
-		written. Checks both years explicitly (not just "at least one exists")
-		since a business signing up in November needs next year covered too."""
-		current_year = getdate().year
+		above. Checks coverage by date range, not an exact "{year}"-named
+		record -- found for real against this shared test bench, which already
+		carries an overlapping Fiscal Year (from an earlier fixture) that
+		_ensure_fiscal_year correctly reuses instead of colliding with; a
+		genuinely fresh site would get one actually named "{year}" instead,
+		but "some Fiscal Year covers this date" is the real requirement
+		either way. Checks both years explicitly since a business signing up
+		in November needs next year covered too."""
 		provision_company(NEW_COMPANY)
-		self.assertTrue(frappe.db.exists("Fiscal Year", str(current_year)))
-		self.assertTrue(frappe.db.exists("Fiscal Year", str(current_year + 1)))
-
-	def test_does_not_duplicate_an_existing_fiscal_year(self):
-		"""A site whose Fiscal Year already exists (the shared test bench's own
-		history, or a real re-run) must not get a second, colliding one --
-		Fiscal Year's name is the year itself, so a naive unconditional insert
-		would throw DuplicateEntryError, not silently do nothing."""
 		current_year = getdate().year
-		provision_company(NEW_COMPANY)  # first call seeds it
-		provision_company(f"{NEW_COMPANY} 2")  # second call, same years: must not re-insert
-		self.assertEqual(frappe.db.count("Fiscal Year", {"year": str(current_year)}), 1)
+		self.assertTrue(self._fiscal_year_covers(current_year))
+		self.assertTrue(self._fiscal_year_covers(current_year + 1))
+
+	def test_does_not_duplicate_coverage_for_an_already_covered_year(self):
+		"""A year that's already covered (whether by this function's own
+		earlier run, a customer's custom Fiscal Year, or -- on this shared
+		test bench specifically -- another test's own fixture) must not get a
+		second, overlapping one -- ERPNext's own overlap validation would
+		throw, not silently no-op, if this tried anyway (found running this
+		for real, not assumed)."""
+		current_year = getdate().year
+		count_before = frappe.db.count(
+			"Fiscal Year",
+			{"year_start_date": ["<=", f"{current_year}-01-01"], "year_end_date": [">=", f"{current_year}-12-31"]},
+		)
+		provision_company(NEW_COMPANY)
+		provision_company(f"{NEW_COMPANY} 2")
+		count_after = frappe.db.count(
+			"Fiscal Year",
+			{"year_start_date": ["<=", f"{current_year}-01-01"], "year_end_date": [">=", f"{current_year}-12-31"]},
+		)
+		self.assertEqual(count_before, count_after)
+
+	def test_reuses_an_overlapping_fiscal_year_under_a_different_name(self):
+		"""Guards the real bug this exact test caught running against the
+		shared test bench: that bench already carries a "2026-2027" Fiscal
+		Year (Jul-Jun) from an earlier fixture, which partially overlaps a
+		plain "2026" or "2027" calendar year without being named either --
+		ERPNext's own Fiscal Year.validate_overlap() is date-range based, and
+		threw a NameError the first time this ran for real instead of the
+		naive exact-name check anticipating it. Reproduces that shape
+		directly: a Fiscal Year named something else entirely, overlapping
+		the target year by one day, must be reused rather than collided
+		with."""
+		current_year = getdate().year
+		frappe.get_doc(
+			{
+				"doctype": "Fiscal Year",
+				"year": f"Some Other Name {current_year}",
+				"year_start_date": f"{current_year}-06-01",
+				"year_end_date": f"{current_year + 1}-05-31",
+			}
+		).insert(ignore_permissions=True)
+
+		provision_company(NEW_COMPANY)  # must not throw
+
+		self.assertFalse(frappe.db.exists("Fiscal Year", str(current_year)))
+		overlap_count = frappe.db.count(
+			"Fiscal Year",
+			{
+				"year_start_date": ["<=", f"{current_year}-12-31"],
+				"year_end_date": [">=", f"{current_year}-01-01"],
+			},
+		)
+		self.assertEqual(overlap_count, 1)  # reused the existing one, didn't duplicate it
 
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own

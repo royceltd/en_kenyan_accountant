@@ -52,17 +52,38 @@ def _ensure_fiscal_year(year: int) -> str:
 	SMBs and KRA-aligned tax years actually run. Editable afterward like any
 	other ERPNext master if a specific customer's accountant needs otherwise;
 	this is a starting default, not a permanent constraint.
+
+	Checks for date-range overlap, not just an exact name match -- found for
+	real running this against the shared test bench (not assumed): ERPNext's
+	own Fiscal Year.validate_overlap() is date-range based and throws rather
+	than silently no-op if this tried to insert a colliding "2026" while
+	some other Fiscal Year (a customer's own custom split, an earlier
+	provisioning attempt, or -- on the shared test bench specifically --
+	another test's own fixture) already covers the same or an overlapping
+	range under a different name. Reusing whatever already overlaps is
+	correct regardless of the reason: the actual need -- some Fiscal Year
+	covering this date -- is already satisfied either way.
 	"""
 	name = str(year)
+	year_start, year_end = f"{year}-01-01", f"{year}-12-31"
+
 	if frappe.db.exists("Fiscal Year", name):
 		return name
+
+	overlapping = frappe.db.get_value(
+		"Fiscal Year",
+		{"year_start_date": ["<=", year_end], "year_end_date": [">=", year_start]},
+		"name",
+	)
+	if overlapping:
+		return overlapping
 
 	frappe.get_doc(
 		{
 			"doctype": "Fiscal Year",
 			"year": name,
-			"year_start_date": f"{year}-01-01",
-			"year_end_date": f"{year}-12-31",
+			"year_start_date": year_start,
+			"year_end_date": year_end,
 		}
 	).insert(ignore_permissions=True)
 	return name
