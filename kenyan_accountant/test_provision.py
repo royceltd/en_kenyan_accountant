@@ -114,6 +114,40 @@ class TestProvisionCompany(IntegrationTestCase):
 			provision_company(NEW_COMPANY)  # second call: already exists, early return
 		mock_clear_cache.assert_not_called()
 
+	def test_resets_home_page_away_from_setup_wizard_on_a_fresh_site(self):
+		"""Guards a third real bug, found after the cache fix above turned out
+		not to be sufficient by itself: a fresh tenant's desk reload-looped
+		itself, and the actual, complete explanation was a separate site
+		default -- frappe.utils.install seeds every new site with
+		desktop:home_page = "setup-wizard" unconditionally at `bench new-site`
+		time, and nothing but the wizard's own completion page (which this
+		fully-automated pipeline deliberately never runs) ever resets it. Left
+		alone, every /desk boot keeps reporting home_page: "setup-wizard"
+		forever; that page's own on_page_load handler sees setup_complete is
+		already true, tries to leave via window.location.href = "/desk" -- and
+		the next load reports the identical wrong home_page again. Confirmed
+		live against an actual stuck tenant, isolated from the cache fix above:
+		its real (authenticated, not guessed) boot info showed home_page:
+		"setup-wizard" even with setup_complete already true; setting this one
+		default to "workspace" and re-fetching flipped it to a real page and the
+		reload cycle -- visible until then in nginx's access log every ~1-2s --
+		did not resume."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"), \
+			patch("frappe.db.set_default") as mock_set_default:
+			provision_company(NEW_COMPANY)
+
+		mock_set_default.assert_called_once_with("desktop:home_page", "workspace")
+
+	def test_does_not_reset_home_page_on_an_already_set_up_site(self):
+		"""Flip side: an already-configured site's home page shouldn't be reset
+		on every subsequent provision_company() call -- a real customer may
+		since have picked their own."""
+		provision_company(NEW_COMPANY)  # first call: real Company created
+		with patch("frappe.db.set_default") as mock_set_default:
+			provision_company(NEW_COMPANY)  # second call: already exists, early return
+		mock_set_default.assert_not_called()
+
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own
 		on_update hook (create_default_warehouses) unconditionally needs a

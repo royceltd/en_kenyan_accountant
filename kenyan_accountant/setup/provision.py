@@ -77,12 +77,33 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 	every /desk page load kept shipping the *client* stale bootinfo still saying
 	frappe/erpnext hadn't finished their wizard -- which is what sent the desk's
 	own JS back into wizard-init logic (visible in nginx's access log as a
-	repeating setup_wizard.load_languages call) in a loop. Confirmed live against
-	the actual stuck tenant: `bench clear-cache` alone stopped the loop instantly,
-	with no other change. frappe's own wizard-completion pipeline
-	(update_global_settings/run_post_setup_complete in setup_wizard.py) always
-	calls this right after setting the same flag, for this exact reason -- the
-	minimal enable_setup_wizard_complete()-only fix above just didn't call it too.
+	repeating setup_wizard.load_languages call) in a loop. frappe's own
+	wizard-completion pipeline (update_global_settings/run_post_setup_complete in
+	setup_wizard.py) always calls this right after setting the same flag, for
+	this exact reason -- the minimal enable_setup_wizard_complete()-only fix
+	above just didn't call it too.
+
+	And resets the "desktop:home_page" site default -- the actual, complete
+	explanation for that same reload loop, found on a *third* real customer's
+	fresh tenant after the cache fix above turned out not to be sufficient by
+	itself (its loop had genuinely stopped once, right when the cache fix was
+	first tested live -- coincidentally, it turned out, since a brand-new tenant
+	hit the identical symptom again afterwards). frappe.utils.install seeds every
+	new site with frappe.db.set_default("desktop:home_page", "setup-wizard")
+	unconditionally at `bench new-site` time, anticipating a human going through
+	the wizard next. Nothing else ever changes it -- the wizard's own completion
+	page (setup_wizard.py) is what resets it to "workspace", but that's part of
+	the full process_setup_stages pipeline this function deliberately doesn't
+	run. Left alone, every /desk boot keeps reporting home_page: "setup-wizard"
+	forever; the setup-wizard page's own on_page_load handler sees
+	frappe.boot.setup_complete is truthy, does `window.location.href = "/desk"`
+	to leave -- and the next load reports the same wrong home_page again.
+	Confirmed live against the actual stuck tenant, isolating this from the
+	cache fix above: fetching its real boot info (an authenticated request, not
+	guessed) showed "home_page":"setup-wizard" even with setup_complete already
+	true; setting the default to "workspace" and re-fetching flipped it to
+	"desktop" and the reload cycle -- visible until then in nginx's access log,
+	repeating every ~1-2s -- did not resume.
 	"""
 	if frappe.db.exists("Company", company_name):
 		return company_name
@@ -120,6 +141,12 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 		# client_cache bootinfo that still claims frappe/erpnext haven't finished
 		# their wizard, and reload-loops itself trying to resolve that.
 		frappe.clear_cache()
+
+		# See the docstring above -- without this, every /desk boot keeps
+		# reporting home_page: "setup-wizard" (bench new-site's own default,
+		# never cleared since this pipeline skips the wizard's completion page
+		# that normally would), which reload-loops the desk trying to leave it.
+		frappe.db.set_default("desktop:home_page", "workspace")
 
 	return company_name
 
