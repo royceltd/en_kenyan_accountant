@@ -131,13 +131,20 @@ class TestProvisionCompany(IntegrationTestCase):
 		"setup-wizard" even with setup_complete already true; setting this one
 		default to "workspace" and re-fetching flipped it to a real page and the
 		reload cycle -- visible until then in nginx's access log every ~1-2s --
-		did not resume."""
+		did not resume.
+
+		Asserts a specific call, not just "called once" -- install_fixtures
+		itself (exercised here too, since first_company is forced True) makes
+		its own incidental frappe.db.set_default(...) calls, seeding unrelated
+		Selling/Buying Settings defaults as an ordinary side effect. Those are
+		routine and not what this test guards; the "desktop:home_page" one this
+		function adds is."""
 		with patch("frappe.is_setup_complete", return_value=False), \
 			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"), \
 			patch("frappe.db.set_default") as mock_set_default:
 			provision_company(NEW_COMPANY)
 
-		mock_set_default.assert_called_once_with("desktop:home_page", "workspace")
+		mock_set_default.assert_any_call("desktop:home_page", "workspace")
 
 	def test_does_not_reset_home_page_on_an_already_set_up_site(self):
 		"""Flip side: an already-configured site's home page shouldn't be reset
