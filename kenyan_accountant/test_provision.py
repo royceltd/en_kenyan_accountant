@@ -10,6 +10,8 @@ from unittest.mock import patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from frappe.utils import getdate
+
 from kenyan_accountant.setup.provision import _generate_abbr, provision, provision_company
 
 NEW_COMPANY = "Royce Provision Test Co"
@@ -154,6 +156,29 @@ class TestProvisionCompany(IntegrationTestCase):
 		with patch("frappe.db.set_default") as mock_set_default:
 			provision_company(NEW_COMPANY)  # second call: already exists, early return
 		mock_set_default.assert_not_called()
+
+	def test_seeds_this_and_next_years_fiscal_year(self):
+		"""Guards a real gap: without a Fiscal Year covering today's date, the
+		first invoice/journal entry/payroll run a real customer attempts fails
+		outright ("no fiscal year found") -- same "wizard normally seeds this,
+		this pipeline never runs the wizard" category as the Warehouse Type bug
+		above, just not yet hit by an actual customer at the time this was
+		written. Checks both years explicitly (not just "at least one exists")
+		since a business signing up in November needs next year covered too."""
+		current_year = getdate().year
+		provision_company(NEW_COMPANY)
+		self.assertTrue(frappe.db.exists("Fiscal Year", str(current_year)))
+		self.assertTrue(frappe.db.exists("Fiscal Year", str(current_year + 1)))
+
+	def test_does_not_duplicate_an_existing_fiscal_year(self):
+		"""A site whose Fiscal Year already exists (the shared test bench's own
+		history, or a real re-run) must not get a second, colliding one --
+		Fiscal Year's name is the year itself, so a naive unconditional insert
+		would throw DuplicateEntryError, not silently do nothing."""
+		current_year = getdate().year
+		provision_company(NEW_COMPANY)  # first call seeds it
+		provision_company(f"{NEW_COMPANY} 2")  # second call, same years: must not re-insert
+		self.assertEqual(frappe.db.count("Fiscal Year", {"year": str(current_year)}), 1)
 
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own

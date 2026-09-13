@@ -23,6 +23,7 @@ step of its own.
 import re
 
 import frappe
+from frappe.utils import getdate
 
 
 def _generate_abbr(company_name: str) -> str:
@@ -37,6 +38,34 @@ def _generate_abbr(company_name: str) -> str:
 	else:
 		abbr = re.sub(r"[^A-Za-z0-9]", "", company_name)[:5].upper()
 	return abbr or "CO"
+
+
+def _ensure_fiscal_year(year: int) -> str:
+	"""Create the Fiscal Year covering `year` (calendar year, Jan 1 - Dec 31) if
+	none already exists. Not scoped to a specific Company: an unrestricted
+	Fiscal Year (empty `companies` table) already applies to every Company on
+	the site, same as the setup wizard's own default, and a Royce-provisioned
+	site has exactly one Company for its whole life anyway (see
+	_generate_abbr's own docstring) -- there is nothing else to scope it to.
+
+	Calendar year, not a government fiscal year -- matches how most Kenyan
+	SMBs and KRA-aligned tax years actually run. Editable afterward like any
+	other ERPNext master if a specific customer's accountant needs otherwise;
+	this is a starting default, not a permanent constraint.
+	"""
+	name = str(year)
+	if frappe.db.exists("Fiscal Year", name):
+		return name
+
+	frappe.get_doc(
+		{
+			"doctype": "Fiscal Year",
+			"year": name,
+			"year_start_date": f"{year}-01-01",
+			"year_end_date": f"{year}-12-31",
+		}
+	).insert(ignore_permissions=True)
+	return name
 
 
 def provision_company(company_name: str, country: str = "Kenya", currency: str = "KES") -> str:
@@ -123,6 +152,16 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 			"country": country,
 		}
 	).insert(ignore_permissions=True)
+
+	# Every accounting transaction (GL entries, most reports) needs an active
+	# Fiscal Year covering its date -- found missing entirely on a genuinely
+	# fresh site, the same category of gap as the Warehouse Type bug above:
+	# this pipeline never runs the setup wizard, which is what normally seeds
+	# one. Seeds both this year and next so a business signing up late in the
+	# year isn't left without one the moment the calendar turns over.
+	current_year = getdate().year
+	_ensure_fiscal_year(current_year)
+	_ensure_fiscal_year(current_year + 1)
 
 	if first_company:
 		# The exact two apps frappe.is_setup_complete() checks -- see its own
