@@ -89,6 +89,93 @@ def _ensure_fiscal_year(year: int) -> str:
 	return name
 
 
+def _ensure_price_lists(currency: str) -> None:
+	"""Creates the standard "Standard Buying"/"Standard Selling" Price Lists if
+	neither already exists, in `currency`. Normally seeded by the setup wizard's
+	own install_defaults() (erpnext/setup/setup_wizard/operations/install_fixtures.py)
+	-- this pipeline never runs that either, same gap class as the Warehouse Type
+	and Fiscal Year ones above, just not noticed until a real user opened "New Item
+	Price" and found no Price List to pick from at all, not even ERPNext's own
+	factory-default pair.
+
+	Named exactly as install_defaults() names them (not translated -- this pipeline
+	has no language selection step to translate them against) so a site that later
+	does run a real setup wizard pass, or gets these seeded some other way, won't
+	collide with a differently-cased duplicate.
+	"""
+	for price_list_name, buying, selling in (
+		("Standard Buying", 1, 0),
+		("Standard Selling", 0, 1),
+	):
+		if frappe.db.exists("Price List", price_list_name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Price List",
+				"price_list_name": price_list_name,
+				"enabled": 1,
+				"buying": buying,
+				"selling": selling,
+				"currency": currency,
+			}
+		).insert(ignore_permissions=True)
+
+
+def _ensure_global_defaults(company_name: str, country: str, currency: str) -> None:
+	"""Sets Global Defaults' default_company/default_currency/country -- the other
+	half of install_defaults() (via its own set_global_defaults()) that this
+	pipeline never runs. Two separate, real symptoms trace back to this single
+	missing call, found on actual tenants rather than assumed from reading the
+	wizard's code alone:
+
+	- New Employee silently fails to save with "Company is required" -- Employee's
+	  own `company` field has no doctype-level default at all (just
+	  remember_last_selected_value, a per-browser localStorage thing that only
+	  helps after a user has picked a company once already); the client falls back
+	  to erpnext.get_default_company(), which resolves to Global Defaults.
+	  default_company and finds it unset on every brand-new tenant.
+	- New Price List defaults its Currency to "INR" -- Frappe's own factory
+	  default, unrelated to our Kenyan customer base -- for the identical reason:
+	  no Global Defaults.default_currency was ever set to override it.
+
+	Also flips `enabled` on the Currency doctype record for `currency` itself
+	(install_defaults() does the same) -- an unenabled Currency is filtered out of
+	every Currency Link field's own dropdown, so without this a user could type
+	the right code and still not find it as a selectable option.
+	"""
+	frappe.db.set_value("Currency", currency, "enabled", 1)
+
+	global_defaults = frappe.get_single("Global Defaults")
+	global_defaults.default_company = company_name
+	global_defaults.default_currency = currency
+	global_defaults.country = country
+	global_defaults.save(ignore_permissions=True)
+
+
+def _ensure_genders() -> None:
+	"""Seeds the standard Gender records if none exist yet. Not an erpnext or hrms
+	fixture at all -- Gender is a frappe-core doctype, normally seeded by frappe
+	core's own setup-wizard fixture installer (a separate module from erpnext's,
+	which is the only one provision_company() calls above), so this pipeline
+	skipping the wizard leaves it empty here too. Found the same way as the other
+	gaps in this file: Employee.gender is `reqd: 1` with an empty options list to
+	pick from, so the very first Employee a customer tries to create has no valid
+	value to select at all.
+
+	Male/Female/Other only -- the three values every Frappe version is known to
+	ship, seeded directly rather than by calling frappe core's own installer
+	(unlike the erpnext one above, its exact signature isn't something this app
+	pins a dependency on or has verified against). If a specific site's frappe
+	version ships a longer canonical list, extending this tuple is safe and
+	additive -- it never removes or renames a record, so nothing an already-live
+	tenant is using would break.
+	"""
+	for gender in ("Male", "Female", "Other"):
+		if frappe.db.exists("Gender", gender):
+			continue
+		frappe.get_doc({"doctype": "Gender", "gender": gender}).insert(ignore_permissions=True)
+
+
 def provision_company(company_name: str, country: str = "Kenya", currency: str = "KES") -> str:
 	"""Creates the Company if it doesn't already exist, and returns its name
 	either way. country/currency default to Kenya/KES -- every Royce Kenya
@@ -185,6 +272,15 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 	_ensure_fiscal_year(current_year + 1)
 
 	if first_company:
+		# See the three docstrings above -- without these, a real customer's very
+		# first session hits three separate dead ends: no Price List exists to
+		# price an Item against, the one they create themselves defaults to INR
+		# instead of KES, and their very first Employee can't be saved at all
+		# ("Company is required" / no Gender to pick from).
+		_ensure_price_lists(currency)
+		_ensure_global_defaults(company_name, country, currency)
+		_ensure_genders()
+
 		# The exact two apps frappe.is_setup_complete() checks -- see its own
 		# implementation in frappe/__init__.py. Deliberately the small, standalone
 		# flag-setter (frappe/desk/page/setup_wizard/setup_wizard.py), not the

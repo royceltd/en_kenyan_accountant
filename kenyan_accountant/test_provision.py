@@ -14,6 +14,9 @@ from frappe.utils import getdate
 
 from kenyan_accountant.setup.provision import (
 	_ensure_fiscal_year,
+	_ensure_genders,
+	_ensure_global_defaults,
+	_ensure_price_lists,
 	_generate_abbr,
 	provision,
 	provision_company,
@@ -235,6 +238,75 @@ class TestProvisionCompany(IntegrationTestCase):
 		self.assertEqual(result, f"Some Other Name {year}")
 		self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
 
+	def test_seeds_standard_price_lists_on_a_fresh_site(self):
+		"""Guards the "New Item Price has nothing to pick from" bug: a fresh site
+		had neither of ERPNext's own factory-default Price Lists, since those are
+		normally created by the setup wizard's install_defaults(), not
+		install_fixtures() (the only wizard piece provision_company already ran
+		before this fix). Forces first_company True the same way the other
+		fresh-site tests above do -- this shared bench likely already carries
+		both Price Lists from its own history, so without that this would mainly
+		document intent rather than exercise the branch."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"):
+			provision_company(NEW_COMPANY)
+
+		for name in ("Standard Buying", "Standard Selling"):
+			self.assertTrue(frappe.db.exists("Price List", name))
+			price_list = frappe.get_doc("Price List", name)
+			self.assertEqual(price_list.currency, "KES")
+
+	def test_does_not_duplicate_price_lists_on_a_second_fresh_company(self):
+		"""_ensure_price_lists names its records after ERPNext's own fixed
+		"Standard Buying"/"Standard Selling" pair (not per-company) -- a second
+		tenant's provisioning must reuse them, not throw a DuplicateEntryError."""
+		provision_company(NEW_COMPANY)
+		provision_company(f"{NEW_COMPANY} 2")  # must not throw
+		self.assertEqual(frappe.db.count("Price List", {"price_list_name": "Standard Buying"}), 1)
+		self.assertEqual(frappe.db.count("Price List", {"price_list_name": "Standard Selling"}), 1)
+
+	def test_sets_global_defaults_on_a_fresh_site(self):
+		"""Guards the "Company is required" / Price List defaulting to INR bugs:
+		both trace back to Global Defaults.default_company/default_currency never
+		being set, since this pipeline never runs the setup wizard's own
+		set_global_defaults()."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"):
+			provision_company(NEW_COMPANY)
+
+		global_defaults = frappe.get_single("Global Defaults")
+		self.assertEqual(global_defaults.default_company, NEW_COMPANY)
+		self.assertEqual(global_defaults.default_currency, "KES")
+		self.assertTrue(frappe.db.get_value("Currency", "KES", "enabled"))
+
+	def test_does_not_touch_global_defaults_on_an_already_set_up_site(self):
+		"""Flip side: an already-configured site's Global Defaults shouldn't be
+		overwritten on every subsequent provision_company() call -- a real
+		customer, or a second Royce app's own setup, may since have changed
+		default_company deliberately (multi-company is out of scope for this
+		pipeline, but nothing here should assume it can never happen)."""
+		provision_company(NEW_COMPANY)
+		with patch("kenyan_accountant.setup.provision._ensure_global_defaults") as mock_ensure:
+			provision_company(NEW_COMPANY)  # second call: already exists, early return
+		mock_ensure.assert_not_called()
+
+	def test_seeds_standard_genders_on_a_fresh_site(self):
+		"""Guards the "no Gender to pick from" bug: Employee.gender is `reqd: 1`
+		with nothing to select, since Gender is a frappe-core fixture this
+		pipeline (which only ever calls erpnext's own install_fixtures) never
+		seeds."""
+		with patch("frappe.is_setup_complete", return_value=False), \
+			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"):
+			provision_company(NEW_COMPANY)
+
+		for gender in ("Male", "Female", "Other"):
+			self.assertTrue(frappe.db.exists("Gender", gender))
+
+	def test_does_not_duplicate_genders_on_a_second_fresh_company(self):
+		provision_company(NEW_COMPANY)
+		provision_company(f"{NEW_COMPANY} 2")  # must not throw
+		self.assertEqual(frappe.db.count("Gender", {"gender": "Male"}), 1)
+
 	def test_seeds_the_setup_wizards_own_fixtures_first(self):
 		"""Guards the real bug this function exists to fix: Company's own
 		on_update hook (create_default_warehouses) unconditionally needs a
@@ -247,6 +319,33 @@ class TestProvisionCompany(IntegrationTestCase):
 		comment for the real story."""
 		provision_company(NEW_COMPANY)
 		self.assertTrue(frappe.db.exists("Warehouse Type", "Transit"))
+
+
+class TestEnsureHelpers(IntegrationTestCase):
+	"""Direct, isolated tests for the three private helpers provision_company()
+	calls on a fresh site -- narrower than going through provision_company()
+	itself (see the fresh-site tests above), so a failure here points straight
+	at the helper responsible instead of the whole first_company branch."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_ensure_price_lists_is_idempotent(self):
+		_ensure_price_lists("KES")
+		_ensure_price_lists("KES")  # must not throw DuplicateEntryError
+		self.assertEqual(frappe.db.count("Price List", {"price_list_name": "Standard Buying"}), 1)
+
+	def test_ensure_global_defaults_sets_company_and_currency(self):
+		_ensure_global_defaults(NEW_COMPANY, "Kenya", "KES")
+		global_defaults = frappe.get_single("Global Defaults")
+		self.assertEqual(global_defaults.default_company, NEW_COMPANY)
+		self.assertEqual(global_defaults.default_currency, "KES")
+		self.assertEqual(global_defaults.country, "Kenya")
+
+	def test_ensure_genders_is_idempotent(self):
+		_ensure_genders()
+		_ensure_genders()  # must not throw DuplicateEntryError
+		self.assertEqual(frappe.db.count("Gender", {"gender": "Male"}), 1)
 
 
 class TestProvision(IntegrationTestCase):
