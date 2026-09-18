@@ -13,6 +13,15 @@ app_license = "mit"
 # at doctype sync. Same rationale royce_etims documents for its own erpnext dependency.
 required_apps = ["erpnext"]
 
+# Ships our own branded Sales Invoice layout as the default for every new tenant --
+# installed automatically via bench install-app, no per-tenant manual setup step.
+fixtures = [
+	{
+		"doctype": "Print Format",
+		"filters": [["name", "=", "Royce Kenya Invoice"]],
+	},
+]
+
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
 	{
