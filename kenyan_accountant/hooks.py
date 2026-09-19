@@ -15,6 +15,11 @@ required_apps = ["erpnext"]
 
 # Ships our own branded print layouts as the default for every new tenant --
 # installed automatically via bench install-app, no per-tenant manual setup step.
+# The Property Setters below are what actually make each one the DEFAULT a
+# customer sees without picking it from a dropdown first -- a Print Format
+# record alone just makes one *available*, it doesn't select it (Frappe's
+# print dialog reads DocType meta.default_print_format, which only a
+# Property Setter on the standard doctype can set without forking it).
 fixtures = [
 	{
 		"doctype": "Print Format",
@@ -24,6 +29,16 @@ fixtures = [
 			"Royce Kenya Purchase Order",
 			"Royce Kenya Purchase Invoice",
 			"Royce Kenya Payment Receipt",
+		]]],
+	},
+	{
+		"doctype": "Property Setter",
+		"filters": [["name", "in", [
+			"Sales Invoice-main-default_print_format",
+			"Quotation-main-default_print_format",
+			"Purchase Order-main-default_print_format",
+			"Purchase Invoice-main-default_print_format",
+			"Payment Entry-main-default_print_format",
 		]]],
 	},
 ]
