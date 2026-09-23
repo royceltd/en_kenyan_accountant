@@ -2,6 +2,10 @@
 
 Kenya Chart of Accounts, VAT and WHT configuration for ERPNext
 
+### Documentation
+
+- [WHT and VAT Withholding (WVAT)](docs/vat-withholding.md)
+
 ### Installation
 
 You can install this app using the [bench](https://github.com/frappe/bench) CLI:

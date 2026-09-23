@@ -27,6 +27,19 @@ def before_tests():
 	frappe.clear_cache()
 
 	if not frappe.db.exists("Company", TEST_COMPANY):
+		# Same fix as provision.py's provision_company(), for the same reason: on a
+		# genuinely fresh site (no company yet), ERPNext's Company.on_update ->
+		# create_default_warehouses() unconditionally expects a "Transit" Warehouse
+		# Type that only the setup wizard's own fixture installer seeds. Missing
+		# here until a real fresh-site test run (not the long-lived shared bench,
+		# which already carries this and other fixtures from its own history)
+		# surfaced the identical LinkValidationError provision_company() was
+		# already fixed for.
+		if not frappe.is_setup_complete():
+			from erpnext.setup.setup_wizard.operations.install_fixtures import install as install_erpnext_fixtures
+
+			install_erpnext_fixtures(country="Kenya")
+
 		company = frappe.get_doc(
 			{
 				"doctype": "Company",
