@@ -23,17 +23,31 @@ on any default in this app — tax law changes, and nothing here auto-updates ag
 
 ## Why two separate mechanisms in this app
 
-ERPNext's own Tax Withholding Category engine (which already powers WHT here) cannot
-represent WHT and WVAT together in one category: a category allows only one account per
-company (`Tax Withholding Category.validate_companies_and_accounts()`) and only one rate per
-date/group (`validate_dates()`), and `Purchase/Sales Invoice Item.tax_withholding_category` is
-a single Link field — one line can only carry one category through that engine. Verified
-directly against ERPNext v16 source, not assumed.
+ERPNext's own Tax Withholding Category engine (which already powers WHT withheld *by* this
+company on Purchase Invoice) cannot represent WHT and WVAT together in one category: a
+category allows only one account per company (`Tax Withholding Category.
+validate_companies_and_accounts()`) and only one rate per date/group (`validate_dates()`), and
+`Purchase Invoice Item.tax_withholding_category` is a single Link field — one line can only
+carry one category through that engine. Verified directly against ERPNext v16 source, not
+assumed.
 
-So: **WHT keeps using ERPNext's existing engine, unchanged.** **VAT Withholding is new and
-independent** — a flat rate posted via Payment Entry's own native `deductions` table (account
-+ amount), which is what actually lets a single Payment Entry carry both a WHT-driven invoice
-adjustment and a VAT Withholding deduction at once.
+So VAT Withholding is a new, independent mechanism: a flat rate posted via Payment Entry's
+own native `deductions` table (account + amount), which is what lets a single Payment Entry
+carry both a WHT-driven invoice adjustment and a VAT Withholding deduction at once.
+
+**A design mistake made and corrected while building this, worth knowing about**: the first
+version tried to handle "a customer withheld WHT from us" by mirroring the purchase side —
+assigning a WHT category to the Customer and ticking Apply TDS on the Sales Invoice, the same
+pattern as Purchase Invoice. This was wrong, found by actually submitting a real Sales Invoice
+and reading the resulting GL Entries: ERPNext's matching mechanism there is
+`SalesTaxWithholding`, whose own docstring names it **"(TCS)"** — Tax Collected at Source, an
+Indian regime where the *seller* collects an *additional* tax from the buyer. That's the
+opposite of a customer withholding tax from what they owe us. It posted the withheld amount as
+a *credit* to the configured account (correct for a TCS liability, wrong for a receivable
+asset) and, on a second attempt, threw a GL balance-direction error mid-submit. Kenya has no
+TCS-equivalent tax, so there was never a legitimate use for that mechanism here. **WHT
+withheld from this company is instead recorded the same way as VAT Withholding** — see
+Direction 2 below.
 
 ## Setup
 
@@ -52,28 +66,40 @@ tick **Subject to VAT Withholding (WVAT)** on the Supplier record — configurab
 on purpose, not automatic for every VAT-registered supplier, so a business can be selective.
 
 When paying that supplier, use the **Add VAT Withholding** button on the Payment Entry (shown
-for a draft payment to a flagged Supplier) to add the deduction at the correct rate, or add a
-row to the Deductions table by hand against the VAT Withholding Payable account.
+for a draft payment to a flagged Supplier) to add the deduction at the correct rate. It also
+reduces `Paid Amount` and sets the deduction's sign correctly so `Difference Amount` balances
+to zero — do this through the button rather than by hand; the sign convention for a "Pay"
+entry is genuinely counter-intuitive (confirmed against ERPNext's own
+`set_difference_amount()` source, not guessed) and easy to get backwards.
+
+WHT this company withholds from a supplier needs no separate step here — it still works
+through the existing WHT categories on Purchase Invoice (Apply TDS), unchanged.
 
 ## Direction 2 — a customer withholds from this company
 
 Does **not** depend on this company's own agent status — it's a fact about the customer, not
-us. Tick **Withholds Tax From Us (e.g. Parastatal)** on the Customer record. The same
-**Add VAT Withholding** button appears on a draft payment received from that customer,
-pointed at the Receivable account instead.
+us. Tick **Withholds Tax From Us (e.g. Parastatal)** on the Customer record.
 
-For **WHT** withheld by a customer (the more common half of this direction — see above, WHT
-obligation is broad, not gazetted-agent-only): assign the relevant WHT category
-(`setup/wht.py`'s categories) to the Customer and tick Apply TDS on the Sales Invoice, exactly
-as already done on the purchase side. This is not new — `wht_receivable_account` existed in
-Kenyan Accountant Settings from the original WHT work; this is simply the first thing to use
-it, on the sales side.
+Recording a payment from that customer, two buttons are available:
+
+- **Add VAT Withholding** — same as Direction 1, computed automatically at the configured
+  rate, posted to the Receivable account instead of Payable.
+- **Add WHT Withheld** — no computed rate here, since WHT's rate depends on the payment type
+  (5% professional/consultancy, 3% contractual, ...), not one flat percentage. Enter the
+  amount straight from the withholding certificate the customer provides, with an optional
+  certificate number.
+
+Both buttons correctly adjust `Received Amount` and the deduction's sign — for a "Receive"
+entry the sign convention is the mirror image of "Pay", and both were verified end-to-end
+against real submitted documents (GL Entries checked directly, not assumed from a clean submit
+alone) before shipping.
 
 ## Tracking: Withholding Tax Credit
 
-Every credit from either mechanism — VAT Withholding (from Payment Entry) or WHT (from
-Purchase/Sales Invoice) — is mirrored into a **Withholding Tax Credit** record automatically.
-Never created by hand; always synced from its source document on submit/cancel.
+Every credit is mirrored into a **Withholding Tax Credit** record automatically — never
+created by hand, always synced from its source document on submit/cancel. WHT withheld *by*
+this company syncs from the Purchase Invoice; everything else (VAT Withholding in either
+direction, and WHT withheld *from* this company) syncs from the Payment Entry.
 
 Fields worth knowing: **Certificate Number** / **Certificate Date** (record what the
 withholding party issues), and **Claimed on a Filed Return** — a self-reported checkbox, not
