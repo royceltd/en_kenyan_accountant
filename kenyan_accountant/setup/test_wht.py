@@ -12,9 +12,6 @@ from kenyan_accountant.setup.wht import (
 	create_wht_categories,
 )
 
-IGNORE_TEST_RECORD_DEPENDENCIES = ["Company", "Account"]
-
-
 class IntegrationTestWht(IntegrationTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
