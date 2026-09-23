@@ -23,12 +23,14 @@ from kenyan_accountant.setup.withholding import (
 # Withholding Tax Credit's own party/payment_entry fields are real Links,
 # though (correctly -- production always has a genuine submitted Payment Entry
 # by the time this runs), so a synthetic doc still needs *something* real for
-# those two to point at. _fake_payment_entry() writes a bare placeholder row
-# via db_insert() (skips full Payment Entry business validation, which needs a
-# real bank account this test has no reason to set up) purely to satisfy Link
+# those two to point at. Deliberately NOT using IntegrationTestCase's own
+# EXTRA_TEST_RECORD_DEPENDENCIES for "Supplier" -- tried it, and it recurses
+# into Supplier's own full dependency graph (same "India-centric bootstrap"
+# trap test_kenyan_accountant_settings.py's own IGNORE_TEST_RECORD_DEPENDENCIES
+# already documents avoiding), took over 3 minutes, and still errored.
+# _fake_party()/_fake_payment_entry() write bare placeholder rows via
+# db_insert() (skips full business validation) purely to satisfy Link
 # validation -- rolled back in tearDown like everything else here.
-
-EXTRA_TEST_RECORD_DEPENDENCIES = ["Supplier"]
 
 
 class IntegrationTestWithholding(IntegrationTestCase):
@@ -48,7 +50,14 @@ class IntegrationTestWithholding(IntegrationTestCase):
 		).insert()
 		return doc
 
+	def _fake_party(self, party_type, name):
+		if frappe.db.exists(party_type, name):
+			return
+		fieldname = "supplier_name" if party_type == "Supplier" else "customer_name"
+		frappe.get_doc({"doctype": party_type, "name": name, fieldname: name}).db_insert()
+
 	def _fake_payment_entry(self, name):
+		self._fake_party("Supplier", "_Test Supplier")
 		frappe.get_doc(
 			{
 				"doctype": "Payment Entry",
