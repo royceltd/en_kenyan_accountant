@@ -8,29 +8,30 @@ from kenyan_accountant.setup.accounts import create_core_tax_accounts
 from kenyan_accountant.setup.utils import TEST_COMPANY
 from kenyan_accountant.setup.withholding import (
 	compute_vat_withholding_amount,
-	sync_vat_withholding_credits,
+	sync_payment_withholding_credits,
 )
 
-# sync_vat_withholding_credits only reads specific fields off its `doc` argument
-# and never calls doc.save() -- a hand-built frappe._dict exercises the real
-# logic (account matching, party-type mismatch guard, credit creation/removal)
-# without needing a fully GL-balanced, submittable Payment Entry, which needs a
-# real bank account and mode of payment this app has no reason to own the setup
-# of. The full, real accounting-engine path (an actual submitted Payment Entry
-# with a deduction row added via the shipped Client Script) was verified live
+# sync_payment_withholding_credits only reads specific fields off its `doc`
+# argument and never calls doc.save() -- a hand-built frappe._dict exercises
+# the real logic (account matching, party-type mismatch guard, credit
+# creation/removal) without needing a fully GL-balanced, submittable Payment
+# Entry, which needs a real bank account and mode of payment this app has no
+# reason to own the setup of. The full, real accounting-engine path (an
+# actual submitted Payment Entry with a deduction row) was verified live
 # against demo.royceerp.com instead -- see the Sep 2026 session notes.
 #
 # Withholding Tax Credit's own party/payment_entry fields are real Links,
 # though (correctly -- production always has a genuine submitted Payment Entry
 # by the time this runs), so a synthetic doc still needs *something* real for
 # those two to point at. Deliberately NOT using IntegrationTestCase's own
-# EXTRA_TEST_RECORD_DEPENDENCIES for "Supplier" -- tried it, and it recurses
-# into Supplier's own full dependency graph (same "India-centric bootstrap"
-# trap test_kenyan_accountant_settings.py's own IGNORE_TEST_RECORD_DEPENDENCIES
-# already documents avoiding), took over 3 minutes, and still errored.
-# _fake_party()/_fake_payment_entry() write bare placeholder rows via
-# db_insert() (skips full business validation) purely to satisfy Link
-# validation -- rolled back in tearDown like everything else here.
+# EXTRA_TEST_RECORD_DEPENDENCIES for "Supplier"/"Customer" -- tried it, and it
+# recurses into their own full dependency graph (same "India-centric
+# bootstrap" trap test_kenyan_accountant_settings.py's own
+# IGNORE_TEST_RECORD_DEPENDENCIES already documents avoiding), took over 3
+# minutes, and still errored. _fake_party()/_fake_payment_entry() write bare
+# placeholder rows via db_insert() (skips full business validation) purely to
+# satisfy Link validation -- rolled back in tearDown like everything else
+# here.
 
 
 class IntegrationTestWithholding(IntegrationTestCase):
@@ -56,15 +57,15 @@ class IntegrationTestWithholding(IntegrationTestCase):
 		fieldname = "supplier_name" if party_type == "Supplier" else "customer_name"
 		frappe.get_doc({"doctype": party_type, "name": name, fieldname: name}).db_insert()
 
-	def _fake_payment_entry(self, name):
-		self._fake_party("Supplier", "_Test Supplier")
+	def _fake_payment_entry(self, name, party_type="Supplier", party="_Test Supplier"):
+		self._fake_party(party_type, party)
 		frappe.get_doc(
 			{
 				"doctype": "Payment Entry",
 				"name": name,
 				"company": TEST_COMPANY,
-				"party_type": "Supplier",
-				"party": "_Test Supplier",
+				"party_type": party_type,
+				"party": party,
 			}
 		).db_insert()
 
@@ -115,13 +116,43 @@ class IntegrationTestWithholding(IntegrationTestCase):
 				)
 			],
 		)
-		sync_vat_withholding_credits(pe, "on_submit")
+		sync_payment_withholding_credits(pe, "on_submit")
 
 		credit = frappe.get_doc("Withholding Tax Credit", {"payment_entry": "_TEST-PE-0001"})
 		self.assertEqual(credit.tax_type, "VAT Withholding")
 		self.assertEqual(credit.direction, "Withheld By Us (Agent)")
 		self.assertEqual(credit.party_type, "Supplier")
 		self.assertEqual(credit.amount, 1000)
+
+	def test_sync_creates_wht_credit_from_matching_receivable_deduction(self):
+		"""WHT a customer withholds from us is recorded the same way as VAT
+		Withholding -- a Payment Entry deduction against wht_receivable_account
+		-- not through Sales Invoice (see withholding.py's module docstring for
+		why that path was tried and reverted)."""
+		settings = self._settings()
+		self._fake_payment_entry("_TEST-PE-0005", party_type="Customer", party="_Test Customer")
+		pe = frappe._dict(
+			doctype="Payment Entry",
+			name="_TEST-PE-0005",
+			company=TEST_COMPANY,
+			party_type="Customer",
+			party="_Test Customer",
+			docstatus=1,
+			deductions=[
+				frappe._dict(
+					account=settings.wht_receivable_account,
+					amount=4000,
+					description="WHT withheld per certificate #123",
+				)
+			],
+		)
+		sync_payment_withholding_credits(pe, "on_submit")
+
+		credit = frappe.get_doc("Withholding Tax Credit", {"payment_entry": "_TEST-PE-0005"})
+		self.assertEqual(credit.tax_type, "WHT")
+		self.assertEqual(credit.direction, "Withheld From Us (Customer)")
+		self.assertEqual(credit.party_type, "Customer")
+		self.assertEqual(credit.amount, 4000)
 
 	def test_sync_ignores_deductions_against_unrelated_accounts(self):
 		self._settings()
@@ -134,7 +165,7 @@ class IntegrationTestWithholding(IntegrationTestCase):
 			docstatus=1,
 			deductions=[frappe._dict(account="Bank Charges - KATC", amount=50, description="Bank fee")],
 		)
-		sync_vat_withholding_credits(pe, "on_submit")
+		sync_payment_withholding_credits(pe, "on_submit")
 		self.assertFalse(frappe.db.exists("Withholding Tax Credit", {"payment_entry": "_TEST-PE-0002"}))
 
 	def test_sync_rejects_account_party_type_mismatch(self):
@@ -152,7 +183,7 @@ class IntegrationTestWithholding(IntegrationTestCase):
 				frappe._dict(account=settings.vat_withholding_payable_account, amount=1000, description="")
 			],
 		)
-		self.assertRaises(frappe.ValidationError, sync_vat_withholding_credits, pe, "on_submit")
+		self.assertRaises(frappe.ValidationError, sync_payment_withholding_credits, pe, "on_submit")
 
 	def test_sync_on_cancel_removes_existing_credit(self):
 		settings = self._settings()
@@ -168,9 +199,9 @@ class IntegrationTestWithholding(IntegrationTestCase):
 				frappe._dict(account=settings.vat_withholding_payable_account, amount=1000, description="")
 			],
 		)
-		sync_vat_withholding_credits(pe, "on_submit")
+		sync_payment_withholding_credits(pe, "on_submit")
 		self.assertTrue(frappe.db.exists("Withholding Tax Credit", {"payment_entry": "_TEST-PE-0004"}))
 
 		pe.docstatus = 2
-		sync_vat_withholding_credits(pe, "on_cancel")
+		sync_payment_withholding_credits(pe, "on_cancel")
 		self.assertFalse(frappe.db.exists("Withholding Tax Credit", {"payment_entry": "_TEST-PE-0004"}))

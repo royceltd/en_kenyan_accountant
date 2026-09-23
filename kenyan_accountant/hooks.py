@@ -54,20 +54,18 @@ fixtures = [
 	},
 ]
 
-# See kenyan_accountant.setup.withholding's module docstring for why WHT and
-# VAT Withholding are two independent mechanisms feeding one tracking doctype
-# (Withholding Tax Credit) rather than one combined engine.
+# See kenyan_accountant.setup.withholding's module docstring for why WHT
+# withheld BY this company (Purchase Invoice, ERPNext's own engine) and
+# everything else (Payment Entry deductions) are separate mechanisms feeding
+# one tracking doctype (Withholding Tax Credit) rather than one combined
+# engine -- and why there is deliberately no Sales Invoice hook here.
 doc_events = {
 	"Payment Entry": {
-		"on_submit": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
-		"on_cancel": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
-		"on_trash": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
+		"on_submit": "kenyan_accountant.setup.withholding.sync_payment_withholding_credits",
+		"on_cancel": "kenyan_accountant.setup.withholding.sync_payment_withholding_credits",
+		"on_trash": "kenyan_accountant.setup.withholding.sync_payment_withholding_credits",
 	},
 	"Purchase Invoice": {
-		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
-		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
-	},
-	"Sales Invoice": {
 		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
 		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
 	},

@@ -59,7 +59,7 @@ class KenyanAccountantSettings(Document):
 			if not self.get(fieldname):
 				self.set(fieldname, template)
 
-		create_wht_categories(self.company, accounts["wht_payable_account"], accounts["wht_receivable_account"])
+		create_wht_categories(self.company, accounts["wht_payable_account"])
 
 		# ERPNext's own country-default "Kenya Tax" template, if this company has
 		# one, competes with the templates just created above - disable it so

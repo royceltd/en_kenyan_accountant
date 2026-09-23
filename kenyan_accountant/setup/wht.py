@@ -11,40 +11,32 @@ a future Finance Act change is a new rate row, not a code change.
 
 Tax Withholding Category has no `company` field on the document itself - it is
 shared, with one row per company in its `accounts` child table pointing at
-that company's WHT account. So re-running setup for a second company adds a
-row to the *same* category rather than creating a duplicate category.
+that company's WHT Payable account. So re-running setup for a second company
+adds a row to the *same* category rather than creating a duplicate category.
 
-Two parallel sets of categories, not one, and this is deliberate: a Tax
-Withholding Category has exactly one configured account per company
-(Tax Withholding Category.validate_companies_and_accounts() rejects a second
-row for the same company) - it cannot route to different accounts depending
-on which direction the withholding runs. The *_PAYABLE categories are for
-Purchase Invoice (this company withholding from a supplier), pointed at
-wht_payable_account. The *_RECEIVABLE categories are for Sales Invoice (a
-customer withholding from this company), pointed at wht_receivable_account.
-
-Found for real, not assumed: the first version of sales-side WHT support
-reused the purchase-side categories directly, since they carry the correct
-rates. That silently posted every customer-withheld WHT amount to the
-*payable* account -- a real, wrong liability entry for money nobody owes,
-instead of the receivable/credit it actually is -- confirmed by checking the
-actual GL Entries on a real submitted Sales Invoice, not assumed from the
-category name alone.
+Purchase Invoice side only, on purpose: this company withholding WHT from a
+supplier. A second, mirrored set of categories for "a customer withheld WHT
+from us" was tried and reverted -- ERPNext's matching mechanism on Sales
+Invoice (apply_tds/tax_withholding_category there) is `SalesTaxWithholding`,
+which its own docstring names as "(TCS)" -- Tax Collected at Source, an
+Indian regime where the *seller* collects an *additional* tax from the buyer,
+the opposite of a customer withholding tax from what they owe. Confirmed
+wrong by actually submitting a real Sales Invoice and reading the resulting
+GL Entries: it credited the intended receivable account, which is correct
+for a TCS liability and wrong for a receivable asset, leaving the books
+unbalanced. Kenya has no TCS-equivalent tax, so there was never a legitimate
+use for it here. WHT a customer withholds from this company is instead
+recorded via a Payment Entry deduction against wht_receivable_account,
+same mechanism as VAT Withholding -- see kenyan_accountant.setup.withholding.
 """
 
 import frappe
 
 # (category_name, rate %) - spec section 12.
-WHT_PAYABLE_CATEGORIES = [
+WHT_CATEGORIES = [
 	("KE WHT - Professional Fees - Resident", 5),
 	("KE WHT - Consultancy/Agency - Resident", 5),
 	("KE WHT - Contractual - Resident", 3),
-]
-
-# Same names/rates, suffixed -- see module docstring for why these must be
-# separate category documents, not the same ones reused on Sales Invoice.
-WHT_RECEIVABLE_CATEGORIES = [
-	(f"{name} (Withheld From Us)", rate) for name, rate in WHT_PAYABLE_CATEGORIES
 ]
 
 # Deliberately broad so the rate covers historical and future transactions
@@ -54,26 +46,13 @@ DEFAULT_RATE_FROM_DATE = "2010-01-01"
 DEFAULT_RATE_TO_DATE = "2099-12-31"
 
 
-def create_wht_categories(company, wht_payable_account, wht_receivable_account=None):
-	"""Create (or find) the standard Kenya WHT categories (both directions --
-	see module docstring) and make sure each one has an account row for
-	`company`. Returns the payable-side category names, unchanged, so existing
-	callers keep working; receivable categories are created as a side effect.
-
-	wht_receivable_account is optional only for backward compatibility with
-	any caller that hasn't been updated to pass it yet -- when omitted, the
-	receivable-side categories are simply skipped rather than created without
-	an account, which Tax Withholding Category's own validation would reject
-	anyway.
+def create_wht_categories(company, wht_payable_account):
+	"""Create (or find) the standard Kenya WHT categories, and make sure each one
+	has an account row for `company`. Returns the category names.
 	"""
 	names = []
-	for category_name, rate in WHT_PAYABLE_CATEGORIES:
+	for category_name, rate in WHT_CATEGORIES:
 		names.append(_get_or_create_wht_category(category_name, rate, company, wht_payable_account))
-
-	if wht_receivable_account:
-		for category_name, rate in WHT_RECEIVABLE_CATEGORIES:
-			_get_or_create_wht_category(category_name, rate, company, wht_receivable_account)
-
 	return names
 
 
