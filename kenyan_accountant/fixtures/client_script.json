@@ -1,0 +1,11 @@
+[
+ {
+  "doctype": "Client Script",
+  "name": "Kenyan Accountant - Payment Entry VAT Withholding",
+  "dt": "Payment Entry",
+  "view": "Form",
+  "enabled": 1,
+  "module": "Kenyan Accountant",
+  "script": "frappe.ui.form.on(\"Payment Entry\", {\n\trefresh(frm) {\n\t\tif (frm.doc.docstatus !== 0 || !frm.doc.party) {\n\t\t\treturn;\n\t\t}\n\t\tif (frm.doc.party_type === \"Supplier\" || frm.doc.party_type === \"Customer\") {\n\t\t\tconst direction = frm.doc.party_type === \"Supplier\" ? \"payable\" : \"receivable\";\n\t\t\tfrm.add_custom_button(\n\t\t\t\t__(\"Add VAT Withholding\"),\n\t\t\t\t() => kenyan_accountant_add_vat_withholding(frm, direction),\n\t\t\t\t__(\"Kenya Tax\")\n\t\t\t);\n\t\t}\n\t},\n});\n\nfunction kenyan_accountant_add_vat_withholding(frm, direction) {\n\tconst default_base = frm.doc.paid_amount || frm.doc.received_amount || 0;\n\tconst dialog = new frappe.ui.Dialog({\n\t\ttitle: __(\"Add VAT Withholding Deduction\"),\n\t\tfields: [\n\t\t\t{\n\t\t\t\tfieldname: \"taxable_amount\",\n\t\t\t\tfieldtype: \"Currency\",\n\t\t\t\tlabel: __(\"Taxable (VAT-Exclusive) Value\"),\n\t\t\t\tdefault: default_base,\n\t\t\t\tdescription: __(\n\t\t\t\t\t\"The VAT-exclusive value of the supply this payment relates to -- not \" +\n\t\t\t\t\t\t\"necessarily the same as the payment amount if this is a partial payment.\"\n\t\t\t\t),\n\t\t\t\treqd: 1,\n\t\t\t},\n\t\t],\n\t\tprimary_action_label: __(\"Add\"),\n\t\tprimary_action(values) {\n\t\t\tfrappe.call({\n\t\t\t\tmethod: \"kenyan_accountant.setup.withholding.compute_vat_withholding_amount\",\n\t\t\t\targs: {\n\t\t\t\t\tcompany: frm.doc.company,\n\t\t\t\t\ttaxable_amount: values.taxable_amount,\n\t\t\t\t\tdirection: direction,\n\t\t\t\t},\n\t\t\t\tcallback(r) {\n\t\t\t\t\tif (!r.message) {\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tdialog.hide();\n\t\t\t\t\tconst row = frm.add_child(\"deductions\");\n\t\t\t\t\trow.account = r.message.account;\n\t\t\t\t\trow.amount = r.message.amount;\n\t\t\t\t\trow.description = __(\"VAT Withholding ({0}%)\", [r.message.rate]);\n\t\t\t\t\tfrm.refresh_field(\"deductions\");\n\t\t\t\t\tfrappe.show_alert({\n\t\t\t\t\t\tmessage: __(\"Added VAT Withholding deduction of {0}\", [format_currency(r.message.amount)]),\n\t\t\t\t\t\tindicator: \"green\",\n\t\t\t\t\t});\n\t\t\t\t},\n\t\t\t});\n\t\t},\n\t});\n\tdialog.show();\n}\n"
+ }
+]

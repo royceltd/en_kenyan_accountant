@@ -65,6 +65,20 @@ CORE_TAX_ACCOUNTS = [
 		"group_candidates": ["Duties and Taxes", "Tax Liabilities"],
 		"balance_must_be": "Credit",
 	},
+	{
+		"fieldname": "vat_withholding_payable_account",
+		"account_name": "VAT Withholding Payable to KRA",
+		"root_type": "Liability",
+		"group_candidates": ["Duties and Taxes", "Tax Liabilities"],
+		"balance_must_be": "Credit",
+	},
+	{
+		"fieldname": "vat_withholding_receivable_account",
+		"account_name": "VAT Withholding Receivable",
+		"root_type": "Asset",
+		"group_candidates": ["Tax Assets", "Duties and Taxes"],
+		"balance_must_be": "Debit",
+	},
 ]
 
 FALLBACK_GROUP_NAME = "VAT & WHT"

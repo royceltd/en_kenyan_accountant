@@ -22,6 +22,17 @@ required_apps = ["erpnext"]
 # Property Setter on the standard doctype can set without forking it).
 fixtures = [
 	{
+		"doctype": "Custom Field",
+		"filters": [
+			["is_system_generated", "=", 0],
+			["module", "=", "Kenyan Accountant"],
+		],
+	},
+	{
+		"doctype": "Client Script",
+		"filters": [["module", "=", "Kenyan Accountant"]],
+	},
+	{
 		"doctype": "Print Format",
 		"filters": [["name", "in", [
 			"Royce Kenya Invoice",
@@ -42,6 +53,25 @@ fixtures = [
 		]]],
 	},
 ]
+
+# See kenyan_accountant.setup.withholding's module docstring for why WHT and
+# VAT Withholding are two independent mechanisms feeding one tracking doctype
+# (Withholding Tax Credit) rather than one combined engine.
+doc_events = {
+	"Payment Entry": {
+		"on_submit": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
+		"on_cancel": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
+		"on_trash": "kenyan_accountant.setup.withholding.sync_vat_withholding_credits",
+	},
+	"Purchase Invoice": {
+		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
+		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
+	},
+	"Sales Invoice": {
+		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
+		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
+	},
+}
 
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [

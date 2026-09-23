@@ -17,6 +17,12 @@
   "vat_credit_account",
   "wht_receivable_account",
   "wht_payable_account",
+  "vat_withholding_section",
+  "is_vat_withholding_agent",
+  "vat_withholding_rate",
+  "column_break_vat_withholding",
+  "vat_withholding_payable_account",
+  "vat_withholding_receivable_account",
   "templates_section",
   "sales_vat_template",
   "purchase_vat_template",
@@ -92,6 +98,45 @@
    "fieldname": "wht_payable_account",
    "fieldtype": "Link",
    "label": "WHT Payable to KRA Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "vat_withholding_section",
+   "fieldtype": "Section Break",
+   "label": "VAT Withholding (WVAT)"
+  },
+  {
+   "default": "0",
+   "description": "Tick only once KRA has actually gazetted this business as an Appointed VAT Withholding Agent. Off by default -- most businesses are not agents, and withholding VAT without that status is not authorized.",
+   "fieldname": "is_vat_withholding_agent",
+   "fieldtype": "Check",
+   "label": "We Are a KRA-Appointed VAT Withholding Agent"
+  },
+  {
+   "default": "2",
+   "depends_on": "is_vat_withholding_agent",
+   "description": "Percentage of the taxable (VAT-exclusive) value withheld from VAT-registered suppliers. Verify against current KRA guidance before relying on the default.",
+   "fieldname": "vat_withholding_rate",
+   "fieldtype": "Percent",
+   "label": "VAT Withholding Rate"
+  },
+  {
+   "fieldname": "column_break_vat_withholding",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "is_vat_withholding_agent",
+   "description": "VAT withheld by this company from its own VAT-registered suppliers",
+   "fieldname": "vat_withholding_payable_account",
+   "fieldtype": "Link",
+   "label": "VAT Withholding Payable to KRA Account",
+   "options": "Account"
+  },
+  {
+   "description": "VAT withheld from this company by a customer who is themselves a gazetted withholding agent (e.g. a parastatal)",
+   "fieldname": "vat_withholding_receivable_account",
+   "fieldtype": "Link",
+   "label": "VAT Withholding Receivable Account",
    "options": "Account"
   },
   {

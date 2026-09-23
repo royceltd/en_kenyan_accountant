@@ -22,6 +22,8 @@ ACCOUNT_FIELDS = [
 	"vat_credit_account",
 	"wht_receivable_account",
 	"wht_payable_account",
+	"vat_withholding_payable_account",
+	"vat_withholding_receivable_account",
 ]
 
 
