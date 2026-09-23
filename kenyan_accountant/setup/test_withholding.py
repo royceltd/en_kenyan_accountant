@@ -19,6 +19,16 @@ from kenyan_accountant.setup.withholding import (
 # of. The full, real accounting-engine path (an actual submitted Payment Entry
 # with a deduction row added via the shipped Client Script) was verified live
 # against demo.royceerp.com instead -- see the Sep 2026 session notes.
+#
+# Withholding Tax Credit's own party/payment_entry fields are real Links,
+# though (correctly -- production always has a genuine submitted Payment Entry
+# by the time this runs), so a synthetic doc still needs *something* real for
+# those two to point at. _fake_payment_entry() writes a bare placeholder row
+# via db_insert() (skips full Payment Entry business validation, which needs a
+# real bank account this test has no reason to set up) purely to satisfy Link
+# validation -- rolled back in tearDown like everything else here.
+
+EXTRA_TEST_RECORD_DEPENDENCIES = ["Supplier"]
 
 
 class IntegrationTestWithholding(IntegrationTestCase):
@@ -37,6 +47,17 @@ class IntegrationTestWithholding(IntegrationTestCase):
 			}
 		).insert()
 		return doc
+
+	def _fake_payment_entry(self, name):
+		frappe.get_doc(
+			{
+				"doctype": "Payment Entry",
+				"name": name,
+				"company": TEST_COMPANY,
+				"party_type": "Supplier",
+				"party": "_Test Supplier",
+			}
+		).db_insert()
 
 	def test_compute_payable_requires_agent_status(self):
 		self._settings(is_agent=0)
@@ -69,6 +90,7 @@ class IntegrationTestWithholding(IntegrationTestCase):
 
 	def test_sync_creates_credit_from_matching_payable_deduction(self):
 		settings = self._settings()
+		self._fake_payment_entry("_TEST-PE-0001")
 		pe = frappe._dict(
 			doctype="Payment Entry",
 			name="_TEST-PE-0001",
@@ -125,6 +147,7 @@ class IntegrationTestWithholding(IntegrationTestCase):
 
 	def test_sync_on_cancel_removes_existing_credit(self):
 		settings = self._settings()
+		self._fake_payment_entry("_TEST-PE-0004")
 		pe = frappe._dict(
 			doctype="Payment Entry",
 			name="_TEST-PE-0004",
