@@ -14,7 +14,6 @@ from frappe.utils import getdate
 
 from kenyan_accountant.setup.provision import (
 	_ensure_fiscal_year,
-	_ensure_genders,
 	_ensure_global_defaults,
 	_ensure_price_lists,
 	_generate_abbr,
@@ -292,9 +291,8 @@ class TestProvisionCompany(IntegrationTestCase):
 
 	def test_seeds_standard_genders_on_a_fresh_site(self):
 		"""Guards the "no Gender to pick from" bug: Employee.gender is `reqd: 1`
-		with nothing to select, since Gender is a frappe-core fixture this
-		pipeline (which only ever calls erpnext's own install_fixtures) never
-		seeds."""
+		with nothing to select, since Gender is a frappe-core fixture. Now seeded
+		by frappe's own install_fixtures via setup/site_defaults.py."""
 		with patch("frappe.is_setup_complete", return_value=False), \
 			patch("frappe.desk.page.setup_wizard.setup_wizard.enable_setup_wizard_complete"):
 			provision_company(NEW_COMPANY)
@@ -322,7 +320,7 @@ class TestProvisionCompany(IntegrationTestCase):
 
 
 class TestEnsureHelpers(IntegrationTestCase):
-	"""Direct, isolated tests for the three private helpers provision_company()
+	"""Direct, isolated tests for the private helpers provision_company()
 	calls on a fresh site -- narrower than going through provision_company()
 	itself (see the fresh-site tests above), so a failure here points straight
 	at the helper responsible instead of the whole first_company branch."""
@@ -342,10 +340,6 @@ class TestEnsureHelpers(IntegrationTestCase):
 		self.assertEqual(global_defaults.default_currency, "KES")
 		self.assertEqual(global_defaults.country, "Kenya")
 
-	def test_ensure_genders_is_idempotent(self):
-		_ensure_genders()
-		_ensure_genders()  # must not throw DuplicateEntryError
-		self.assertEqual(frappe.db.count("Gender", {"gender": "Male"}), 1)
 
 
 class TestProvision(IntegrationTestCase):

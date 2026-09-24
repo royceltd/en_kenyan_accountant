@@ -7,3 +7,7 @@
 # has to already know is named provision.py. Confirmed by trying the bare dotted path
 # against a real site first and getting exactly that AttributeError, not assumed.
 from kenyan_accountant.setup.provision import provision, provision_company  # noqa: F401
+
+# Same reason: `bench --site X execute kenyan_accountant.setup.backfill_site_defaults`
+# for sites provisioned before setup/site_defaults.py existed.
+from kenyan_accountant.setup.site_defaults import backfill_site_defaults  # noqa: F401,E402

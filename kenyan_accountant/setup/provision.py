@@ -25,6 +25,8 @@ import re
 import frappe
 from frappe.utils import getdate
 
+from kenyan_accountant.setup.site_defaults import apply_wizard_defaults, seed_payment_defaults
+
 
 def _generate_abbr(company_name: str) -> str:
 	"""A short, valid Company.abbr from a business name -- initials of each word
@@ -152,30 +154,6 @@ def _ensure_global_defaults(company_name: str, country: str, currency: str) -> N
 	global_defaults.save(ignore_permissions=True)
 
 
-def _ensure_genders() -> None:
-	"""Seeds the standard Gender records if none exist yet. Not an erpnext or hrms
-	fixture at all -- Gender is a frappe-core doctype, normally seeded by frappe
-	core's own setup-wizard fixture installer (a separate module from erpnext's,
-	which is the only one provision_company() calls above), so this pipeline
-	skipping the wizard leaves it empty here too. Found the same way as the other
-	gaps in this file: Employee.gender is `reqd: 1` with an empty options list to
-	pick from, so the very first Employee a customer tries to create has no valid
-	value to select at all.
-
-	Male/Female/Other only -- the three values every Frappe version is known to
-	ship, seeded directly rather than by calling frappe core's own installer
-	(unlike the erpnext one above, its exact signature isn't something this app
-	pins a dependency on or has verified against). If a specific site's frappe
-	version ships a longer canonical list, extending this tuple is safe and
-	additive -- it never removes or renames a record, so nothing an already-live
-	tenant is using would break.
-	"""
-	for gender in ("Male", "Female", "Other"):
-		if frappe.db.exists("Gender", gender):
-			continue
-		frappe.get_doc({"doctype": "Gender", "gender": gender}).insert(ignore_permissions=True)
-
-
 def provision_company(company_name: str, country: str = "Kenya", currency: str = "KES") -> str:
 	"""Creates the Company if it doesn't already exist, and returns its name
 	either way. country/currency default to Kenya/KES -- every Royce Kenya
@@ -279,7 +257,13 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 		# ("Company is required" / no Gender to pick from).
 		_ensure_price_lists(currency)
 		_ensure_global_defaults(company_name, country, currency)
-		_ensure_genders()
+
+		# The rest of the wizard: System Settings (time zone, country, currency,
+		# date format, enable_scheduler), frappe's own fixtures (Salutations,
+		# Genders), stock defaults, and Kenya payment defaults (M-Pesa, Bank).
+		# See setup/site_defaults.py -- found missing on every live tenant
+		# 2026-09-24, including a scheduler that had never once run.
+		apply_wizard_defaults(company_name)
 
 		# The exact two apps frappe.is_setup_complete() checks -- see its own
 		# implementation in frappe/__init__.py. Deliberately the small, standalone
@@ -320,6 +304,10 @@ def provision(company_name: str) -> dict:
 	called separately by whoever orchestrates onboarding.
 	"""
 	company_name = provision_company(company_name)
+	# Idempotent, and outside provision_company()'s first-company branch on
+	# purpose: a provisioning retry that finds the Company already created still
+	# gets its M-Pesa/Bank defaults.
+	seed_payment_defaults(company_name)
 
 	if frappe.db.exists("Kenyan Accountant Settings", company_name):
 		settings = frappe.get_doc("Kenyan Accountant Settings", company_name)
