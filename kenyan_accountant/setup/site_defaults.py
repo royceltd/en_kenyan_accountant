@@ -85,6 +85,7 @@ def apply_wizard_defaults(company: str) -> None:
 	# Sets country/time_zone/currency/language/date+time+number format/precision and
 	# enable_scheduler=1 (0 under frappe.in_test, by upstream design).
 	update_system_settings(frappe._dict(KENYA_WIZARD_ARGS))
+	_rebase_future_scheduled_jobs()
 	_fix_user_timezones()
 	frappe_fixtures.install()
 	update_stock_settings()
@@ -129,6 +130,10 @@ def backfill_site_defaults(enable_scheduler: bool = True) -> dict:
 		system_settings.flags.ignore_permissions = True
 		system_settings.save()
 
+	rebased = _rebase_future_scheduled_jobs()
+	if rebased:
+		changes["Scheduled Job Type.creation rebased"] = rebased
+
 	fixed_users = _fix_user_timezones()
 	if fixed_users:
 		changes["User.time_zone"] = fixed_users
@@ -154,6 +159,23 @@ def backfill_site_defaults(enable_scheduler: bool = True) -> dict:
 	frappe.db.commit()
 	frappe.clear_cache()
 	return changes
+
+
+def _rebase_future_scheduled_jobs() -> int:
+	"""Scheduled Job Types registered while the site still had no time zone were
+	stamped in frappe's Asia/Kolkata fallback (+2.5h vs Nairobi). After the switch
+	they look created in the future, and Frappe computes a never-run job's first
+	run from its creation time, so the scheduler ignored them for ~2.5h on every new
+	site (found 2026-09-24). Moves only never-run, future-stamped rows back to now."""
+	now = frappe.utils.now_datetime()
+	rows = frappe.get_all(
+		"Scheduled Job Type",
+		filters={"creation": [">", now], "last_execution": ["is", "not set"]},
+		pluck="name",
+	)
+	for name in rows:
+		frappe.db.set_value("Scheduled Job Type", name, "creation", now, update_modified=False)
+	return len(rows)
 
 
 def _fix_user_timezones() -> list:

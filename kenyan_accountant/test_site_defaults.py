@@ -193,6 +193,23 @@ class TestBackfillGlobalDefaults(IntegrationTestCase):
 			self.assertEqual(_backfill_global_defaults(), {})
 
 
+class TestRebaseScheduledJobs(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_moves_future_never_run_jobs_back_to_now(self):
+		from frappe.utils import add_to_date, now_datetime
+
+		from kenyan_accountant.setup.site_defaults import _rebase_future_scheduled_jobs
+
+		name = frappe.get_all("Scheduled Job Type", pluck="name", limit=1)[0]
+		future = add_to_date(now_datetime(), hours=2, minutes=30)
+		frappe.db.set_value("Scheduled Job Type", name, {"creation": future, "last_execution": None},
+			update_modified=False)
+		self.assertGreaterEqual(_rebase_future_scheduled_jobs(), 1)
+		self.assertLessEqual(frappe.db.get_value("Scheduled Job Type", name, "creation"), now_datetime())
+
+
 class TestHelpers(IntegrationTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
