@@ -142,7 +142,7 @@ def backfill_site_defaults(enable_scheduler: bool = True) -> dict:
 	if _disable_currency_if_unused("INR"):
 		changes["Currency.INR"] = "disabled"
 
-	for company in frappe.get_all("Company", pluck="name"):
+	for company in _list_companies():
 		seeded = seed_payment_defaults(company)
 		if seeded:
 			changes[f"payment_defaults[{company}]"] = seeded
@@ -173,13 +173,17 @@ def _fix_user_timezones() -> list:
 	return fixed
 
 
+def _list_companies() -> list:
+	return frappe.get_all("Company", pluck="name")
+
+
 def _backfill_global_defaults() -> dict:
 	"""Fill-blank Global Defaults for tenants provisioned before provision.py's
 	_ensure_global_defaults() existed. Found on a real staging tenant: no
 	default_company, which breaks "Company is required" on new Employees and
 	leaves no company to find a default warehouse for. Only acts when the site has
 	exactly one Company. With more than one, which is "the default" is a human call."""
-	companies = frappe.get_all("Company", pluck="name")
+	companies = _list_companies()
 	if len(companies) != 1:
 		return {}
 	company = companies[0]

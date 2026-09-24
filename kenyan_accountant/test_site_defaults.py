@@ -169,10 +169,11 @@ class TestBackfillGlobalDefaults(IntegrationTestCase):
 	def test_fills_blank_default_company_on_a_single_company_site(self):
 		from kenyan_accountant.setup.site_defaults import _backfill_global_defaults
 
-		with patch("frappe.get_all", return_value=["_Test Company"]):
+		company = frappe.db.get_value("Company", {}) or _fresh_company()
+		with patch("kenyan_accountant.setup.site_defaults._list_companies", return_value=[company]):
 			frappe.db.set_single_value("Global Defaults", "default_company", None)
 			changes = _backfill_global_defaults()
-		self.assertEqual(frappe.db.get_single_value("Global Defaults", "default_company"), "_Test Company")
+		self.assertEqual(frappe.db.get_single_value("Global Defaults", "default_company"), company)
 		self.assertIn("Global Defaults.default_company", changes)
 
 	def test_replaces_factory_inr_default_currency_on_a_kes_company(self):
@@ -180,7 +181,7 @@ class TestBackfillGlobalDefaults(IntegrationTestCase):
 
 		company = frappe.db.get_value("Company", {"default_currency": "KES"}) or _fresh_company()
 		frappe.db.set_single_value("Global Defaults", "default_currency", "INR")
-		with patch("frappe.get_all", return_value=[company]):
+		with patch("kenyan_accountant.setup.site_defaults._list_companies", return_value=[company]):
 			changes = _backfill_global_defaults()
 		self.assertEqual(frappe.db.get_single_value("Global Defaults", "default_currency"), "KES")
 		self.assertEqual(changes["Global Defaults.default_currency"], "KES")
@@ -188,7 +189,7 @@ class TestBackfillGlobalDefaults(IntegrationTestCase):
 	def test_leaves_multi_company_sites_alone(self):
 		from kenyan_accountant.setup.site_defaults import _backfill_global_defaults
 
-		with patch("frappe.get_all", return_value=["_Test Company", "_Test Company 1"]):
+		with patch("kenyan_accountant.setup.site_defaults._list_companies", return_value=["_Test Company", "_Test Company 1"]):
 			self.assertEqual(_backfill_global_defaults(), {})
 
 
