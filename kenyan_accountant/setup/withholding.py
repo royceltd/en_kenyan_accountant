@@ -57,8 +57,8 @@ VAT_WITHHOLDING_TAX_TYPE = "VAT Withholding"
 
 
 def _get_settings(company):
-	if frappe.db.exists("Kenyan Accountant Settings", company):
-		return frappe.get_cached_doc("Kenyan Accountant Settings", company)
+	if frappe.db.exists("Kenya Accounting Settings", company):
+		return frappe.get_cached_doc("Kenya Accounting Settings", company)
 	return None
 
 
@@ -82,13 +82,13 @@ def compute_vat_withholding_amount(company: str, taxable_amount: float, directio
 	"""
 	settings = _get_settings(company)
 	if not settings:
-		frappe.throw(f"{company} has no Kenyan Accountant Settings configured yet.")
+		frappe.throw(f"{company} has no Kenya Accounting Settings configured yet.")
 
 	if direction == "payable":
 		if not settings.is_vat_withholding_agent:
 			frappe.throw(
 				f"{company} is not configured as a KRA-Appointed VAT Withholding Agent "
-				"in Kenyan Accountant Settings."
+				"in Kenya Accounting Settings."
 			)
 		account = settings.vat_withholding_payable_account
 	elif direction == "receivable":

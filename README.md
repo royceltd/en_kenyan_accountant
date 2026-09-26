@@ -1,4 +1,4 @@
-### Kenyan Accountant
+### Kenya Accounting (`kenyan_accountant`)
 
 Kenya Chart of Accounts, VAT and WHT configuration for ERPNext
 

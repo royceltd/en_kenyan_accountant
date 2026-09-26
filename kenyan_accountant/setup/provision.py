@@ -294,7 +294,7 @@ def provision_company(company_name: str, country: str = "Kenya", currency: str =
 @frappe.whitelist()
 def provision(company_name: str) -> dict:
 	"""Full bootstrap for a brand-new tenant: create the Company (if needed), then
-	run this app's own Kenyan Accountant Settings setup against it. Safe to call
+	run this app's own Kenya Accounting Settings setup against it. Safe to call
 	repeatedly -- provision_company() and run_setup() both are (see their own
 	docstrings).
 
@@ -309,12 +309,12 @@ def provision(company_name: str) -> dict:
 	# gets its M-Pesa/Bank defaults.
 	seed_payment_defaults(company_name)
 
-	if frappe.db.exists("Kenyan Accountant Settings", company_name):
-		settings = frappe.get_doc("Kenyan Accountant Settings", company_name)
+	if frappe.db.exists("Kenya Accounting Settings", company_name):
+		settings = frappe.get_doc("Kenya Accounting Settings", company_name)
 	else:
 		settings = frappe.get_doc(
-			{"doctype": "Kenyan Accountant Settings", "company": company_name}
+			{"doctype": "Kenya Accounting Settings", "company": company_name}
 		).insert(ignore_permissions=True)
 
 	result = settings.run_setup()
-	return {"company": company_name, "kenyan_accountant_settings": settings.name, **result}
+	return {"company": company_name, "kenya_accounting_settings": settings.name, **result}

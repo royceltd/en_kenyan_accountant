@@ -27,7 +27,7 @@ ACCOUNT_FIELDS = [
 ]
 
 
-class KenyanAccountantSettings(Document):
+class KenyaAccountingSettings(Document):
 	def validate(self):
 		# "Reviewed" and "Activated" are earned states, not just labels - ticking
 		# the box (and saving) is what promotes Draft Configuration -> Reviewed;

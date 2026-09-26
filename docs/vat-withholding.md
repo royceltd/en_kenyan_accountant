@@ -51,7 +51,7 @@ Direction 2 below.
 
 ## Setup
 
-In **Kenyan Accountant Settings**, under "VAT Withholding (WVAT)":
+In **Kenya Accounting Settings**, under "VAT Withholding (WVAT)":
 
 - **We Are a KRA-Appointed VAT Withholding Agent** — off by default. Only tick this once KRA
   has actually gazetted this business. This gates the *payable* side only (see below).

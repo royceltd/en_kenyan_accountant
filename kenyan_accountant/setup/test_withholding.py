@@ -26,7 +26,7 @@ from kenyan_accountant.setup.withholding import (
 # those two to point at. Deliberately NOT using IntegrationTestCase's own
 # EXTRA_TEST_RECORD_DEPENDENCIES for "Supplier"/"Customer" -- tried it, and it
 # recurses into their own full dependency graph (same "India-centric
-# bootstrap" trap test_kenyan_accountant_settings.py's own
+# bootstrap" trap test_kenya_accounting_settings.py's own
 # IGNORE_TEST_RECORD_DEPENDENCIES already documents avoiding), took over 3
 # minutes, and still errored. _fake_party()/_fake_payment_entry() write bare
 # placeholder rows via db_insert() (skips full business validation) purely to
@@ -42,7 +42,7 @@ class IntegrationTestWithholding(IntegrationTestCase):
 		accounts = create_core_tax_accounts(TEST_COMPANY)
 		doc = frappe.get_doc(
 			{
-				"doctype": "Kenyan Accountant Settings",
+				"doctype": "Kenya Accounting Settings",
 				"company": TEST_COMPANY,
 				"is_vat_withholding_agent": is_agent,
 				"vat_withholding_rate": rate,

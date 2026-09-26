@@ -19,7 +19,7 @@ sections 4-5. Two design principles from that spec drive everything here:
 import frappe
 from frappe import _
 
-# Each entry maps 1:1 onto a Kenyan Accountant Settings fieldname. group_candidates
+# Each entry maps 1:1 onto a Kenya Accounting Settings fieldname. group_candidates
 # are tried in order against the company's existing chart before falling back to
 # creating a dedicated "VAT & WHT" group under the relevant root.
 CORE_TAX_ACCOUNTS = [
@@ -87,7 +87,7 @@ FALLBACK_GROUP_NAME = "VAT & WHT"
 def create_core_tax_accounts(company):
 	"""Create (or find) the 6 core Kenya VAT/WHT accounts for `company`.
 
-	Returns {fieldname: account_name}, keyed to match Kenyan Accountant Settings
+	Returns {fieldname: account_name}, keyed to match Kenya Accounting Settings
 	fields exactly, so callers can merge the result straight onto the settings doc.
 	"""
 	result = {}

@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Royce Technologies LTD and contributors
 # For license information, please see license.txt
 
-"""Test-site bootstrap. Kenyan Accountant Settings Links to Company, so tests
+"""Test-site bootstrap. Kenya Accounting Settings Links to Company, so tests
 need a real Company - and a real Chart of Accounts - to exist, not a mocked one.
 
 Deliberately does NOT use ERPNext's setup wizard (frappe.desk.page.setup_wizard.
@@ -20,7 +20,7 @@ import frappe
 from erpnext.setup.utils import enable_all_roles_and_domains
 from frappe.utils import now_datetime
 
-TEST_COMPANY = "Kenyan Accountant Test Co"
+TEST_COMPANY = "Kenya Accounting Test Co"
 
 
 def before_tests():

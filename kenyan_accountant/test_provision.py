@@ -353,7 +353,7 @@ class TestProvision(IntegrationTestCase):
 
 		self.assertEqual(result["company"], NEW_COMPANY)
 		self.assertTrue(frappe.db.exists("Company", NEW_COMPANY))
-		settings = frappe.get_doc("Kenyan Accountant Settings", NEW_COMPANY)
+		settings = frappe.get_doc("Kenya Accounting Settings", NEW_COMPANY)
 		self.assertTrue(settings.input_vat_account)
 		self.assertTrue(settings.sales_vat_template)
 		self.assertIn(settings.setup_status, ("Draft Configuration",))
@@ -361,7 +361,7 @@ class TestProvision(IntegrationTestCase):
 	def test_is_idempotent(self):
 		first = provision(NEW_COMPANY)
 		second = provision(NEW_COMPANY)
-		self.assertEqual(first["kenyan_accountant_settings"], second["kenyan_accountant_settings"])
+		self.assertEqual(first["kenya_accounting_settings"], second["kenya_accounting_settings"])
 		self.assertEqual(
-			frappe.db.count("Kenyan Accountant Settings", {"company": NEW_COMPANY}), 1
+			frappe.db.count("Kenya Accounting Settings", {"company": NEW_COMPANY}), 1
 		)

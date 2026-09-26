@@ -23,12 +23,12 @@ IGNORE_TEST_RECORD_DEPENDENCIES = [
 ]
 
 
-class IntegrationTestKenyanAccountantSettings(IntegrationTestCase):
+class IntegrationTestKenyaAccountingSettings(IntegrationTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
 
 	def _settings(self):
-		return frappe.get_doc({"doctype": "Kenyan Accountant Settings", "company": TEST_COMPANY}).insert()
+		return frappe.get_doc({"doctype": "Kenya Accounting Settings", "company": TEST_COMPANY}).insert()
 
 	def test_autonames_to_company_and_starts_not_started(self):
 		doc = self._settings()

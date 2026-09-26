@@ -1,5 +1,5 @@
 app_name = "kenyan_accountant"
-app_title = "Accountant"
+app_title = "Kenya Accounting"
 app_publisher = "Royce Technologies LTD"
 app_description = "Kenya Chart of Accounts, VAT and WHT configuration for ERPNext"
 app_email = "developer@roycetechnologies.co.ke"
@@ -25,21 +25,21 @@ fixtures = [
 		"doctype": "Custom Field",
 		"filters": [
 			["is_system_generated", "=", 0],
-			["module", "=", "Kenyan Accountant"],
+			["module", "=", "Kenya Accounting"],
 		],
 	},
 	{
 		"doctype": "Client Script",
-		"filters": [["module", "=", "Kenyan Accountant"]],
+		"filters": [["module", "=", "Kenya Accounting"]],
 	},
 	{
 		"doctype": "Print Format",
 		"filters": [["name", "in", [
-			"Royce Kenya Invoice",
-			"Royce Kenya Quotation",
-			"Royce Kenya Purchase Order",
-			"Royce Kenya Purchase Invoice",
-			"Royce Kenya Payment Receipt",
+			"Kenya Tax Invoice",
+			"Kenya Quotation",
+			"Kenya Purchase Order",
+			"Kenya Purchase Invoice",
+			"Kenya Payment Receipt",
 		]]],
 	},
 	{
@@ -76,8 +76,8 @@ add_to_apps_screen = [
 	{
 		"name": "kenyan_accountant",
 		"logo": "/assets/kenyan_accountant/logo.svg",
-		"title": "Accountant",
-		"route": "/app/kenyan-accountant-settings",
+		"title": "Kenya Accounting",
+		"route": "/app/kenya-accounting-settings",
 		"has_permission": "kenyan_accountant.check_app_permission",
 	}
 ]

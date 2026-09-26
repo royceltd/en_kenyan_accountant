@@ -4,7 +4,7 @@
 """Tests for the setup/ installer functions directly (not through the Kenyan
 Accountant Settings doctype) - accounts.py, vat.py and wht.py each own one
 concern from the spec and are tested against that concern in isolation.
-See kenyan_accountant_settings/test_kenyan_accountant_settings.py for the
+See kenya_accounting_settings/test_kenya_accounting_settings.py for the
 orchestration/lifecycle tests that go through the doctype.
 """
 

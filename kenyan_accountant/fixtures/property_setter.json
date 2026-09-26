@@ -13,7 +13,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "Royce Kenya Invoice"
+  "value": "Kenya Tax Invoice"
  },
  {
   "default_value": null,
@@ -29,7 +29,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "Royce Kenya Quotation"
+  "value": "Kenya Quotation"
  },
  {
   "default_value": null,
@@ -45,7 +45,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "Royce Kenya Purchase Order"
+  "value": "Kenya Purchase Order"
  },
  {
   "default_value": null,
@@ -61,7 +61,7 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "Royce Kenya Purchase Invoice"
+  "value": "Kenya Purchase Invoice"
  },
  {
   "default_value": null,
@@ -77,6 +77,6 @@
   "property": "default_print_format",
   "property_type": "Data",
   "row_name": null,
-  "value": "Royce Kenya Payment Receipt"
+  "value": "Kenya Payment Receipt"
  }
 ]

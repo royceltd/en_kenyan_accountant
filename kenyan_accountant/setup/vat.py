@@ -37,7 +37,7 @@ def create_vat_templates(company, accounts):
 	equivalent {fieldname: account_name} mapping - only input_vat_account and
 	output_vat_account are used here.
 
-	Returns {fieldname: template_name}, keyed to match Kenyan Accountant Settings.
+	Returns {fieldname: template_name}, keyed to match Kenya Accounting Settings.
 	"""
 	result = {}
 
