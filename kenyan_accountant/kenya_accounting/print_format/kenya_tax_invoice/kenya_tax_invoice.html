@@ -9,7 +9,7 @@
   {{ parties(
       "Bill To",
       doc.customer_name,
-      doc.address_display,
+      ctx.party_address,
       doc.tax_id or frappe.db.get_value("Customer", doc.customer, "tax_id"),
       [
         ("Credit Note No." if doc.is_return else "Invoice No.", doc.name),

@@ -7,7 +7,7 @@
   {{ parties(
       "Supplier",
       doc.supplier_name,
-      doc.address_display,
+      ctx.party_address,
       frappe.db.get_value("Supplier", doc.supplier, "tax_id"),
       [
         ("PO No.", doc.name),

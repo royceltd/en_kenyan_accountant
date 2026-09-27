@@ -93,6 +93,7 @@ def kenya_print_context(doc) -> frappe._dict:
 		accent=settings.get("print_accent_color") or NEUTRAL_ACCENT,
 		payment_details=settings.get("payment_details") or "",
 		company=_company_identity(doc, company),
+		party_address=party_address(doc),
 		use_letter_head=uses_own_letter_head(doc),
 		line_vat=line_vat(doc),
 		# VAT-inclusive prices: lines print their VAT-exclusive (net) figures, so
@@ -158,6 +159,32 @@ def line_vat(doc) -> dict:
 				pass
 		rows[item.name] = {"rate": rate, "amount": flt(item.get("net_amount")) * rate / 100}
 	return rows
+
+
+PARTY_FIELDS = {
+	"Sales Invoice": ("Customer", "customer"),
+	"Purchase Order": ("Supplier", "supplier"),
+	"Purchase Invoice": ("Supplier", "supplier"),
+}
+
+
+def party_address(doc) -> str:
+	"""The address chosen on the document; for one saved before the party had an
+	address, the party's current primary address."""
+	if doc.get("address_display"):
+		return doc.address_display
+	party_type, field = PARTY_FIELDS.get(doc.doctype, (None, None))
+	if doc.doctype == "Quotation" and doc.get("quotation_to") == "Customer":
+		party_type, field = "Customer", "party_name"
+	if not party_type or not doc.get(field):
+		return ""
+	try:
+		from frappe.contacts.doctype.address.address import get_address_display, get_default_address
+
+		name = get_default_address(party_type, doc.get(field))
+		return get_address_display(name) if name else ""
+	except Exception:
+		return ""
 
 
 def uses_own_letter_head(doc) -> bool:

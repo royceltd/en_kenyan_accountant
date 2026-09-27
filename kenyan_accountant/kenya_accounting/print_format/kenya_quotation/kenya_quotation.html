@@ -7,7 +7,7 @@
   {{ parties(
       "Prepared For",
       doc.customer_name or doc.party_name,
-      doc.address_display,
+      ctx.party_address,
       frappe.db.get_value("Customer", doc.party_name, "tax_id") if doc.quotation_to == "Customer" else "",
       [
         ("Quotation No.", doc.name),

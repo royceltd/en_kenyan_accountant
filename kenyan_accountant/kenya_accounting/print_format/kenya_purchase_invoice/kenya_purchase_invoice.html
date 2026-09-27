@@ -8,7 +8,7 @@
   {{ parties(
       "Supplier",
       doc.supplier_name,
-      doc.address_display,
+      ctx.party_address,
       doc.tax_id or frappe.db.get_value("Supplier", doc.supplier, "tax_id"),
       [
         ("Debit Note No." if doc.is_return else "Reference", doc.name),
