@@ -26,7 +26,7 @@
 
   {% if (ctx.payment_details and not doc.is_return) or ctx.etims.qr %}
   <table><tr>
-    <td style="padding-right: 16px;">{% if not doc.is_return %}{{ payment_details(ctx, doc.name) }}{% endif %}</td>
+    <td class="kx-gap">{% if not doc.is_return %}{{ payment_details(ctx, doc.name) }}{% endif %}</td>
     {% if ctx.etims.qr %}
     <td class="kx-right kx-section" style="width: 120px;">
       <img class="kx-qr" src="{{ ctx.etims.qr }}" alt="">

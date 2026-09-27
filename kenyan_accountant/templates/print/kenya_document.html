@@ -12,47 +12,53 @@
 
 {%- macro styles(ctx) -%}
 <style>
-  .kx-doc { font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1f2937; font-size: 9.5pt; line-height: 1.45; }
-  .kx-doc table { width: 100%; border-collapse: collapse; }
-  .kx-doc td, .kx-doc th { vertical-align: top; }
+  /* Frappe's "Redesign" print style (the default) forces `.print-format td, th
+     { padding: 10px !important }` on every table cell. Reset that inside our
+     documents first; every padding below is !important for the same reason. */
+  .print-format .kx-doc td, .print-format .kx-doc th, .kx-doc td, .kx-doc th { padding: 0 !important; vertical-align: top; }
+
+  .kx-doc { font-family: "Inter", "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif; color: #1f2937; font-size: 9pt; line-height: 1.4; }
+  .kx-doc table { width: 100%; border-collapse: collapse; margin: 0; }
   .kx-doc .kx-muted { color: #6b7280; }
-  .kx-doc .kx-small { font-size: 8.5pt; }
+  .kx-doc .kx-small { font-size: 8pt; }
   .kx-doc .kx-nowrap { white-space: nowrap; }
   .kx-doc .kx-right { text-align: right; }
+  .kx-doc td.kx-gap { padding-right: 18px !important; }
 
-  .kx-head td { padding-bottom: 14px; }
-  .kx-logo { max-height: 64px; max-width: 170px; margin-bottom: 8px; display: block; }
-  .kx-company { font-size: 13pt; font-weight: 700; color: #111827; margin-bottom: 2px; }
-  .kx-title { font-size: 20pt; font-weight: 700; letter-spacing: 0.02em; color: {{ ctx.accent }}; text-transform: uppercase; line-height: 1.1; }
-  .kx-badge { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-  .kx-badge-draft, .kx-badge-cancelled { color: #b91c1c; border: 1px solid #b91c1c; }
-  .kx-badge-paid { color: #15803d; border: 1px solid #15803d; }
-  .kx-rule { border-top: 2px solid {{ ctx.accent }}; margin: 0 0 14px 0; }
+  .kx-doc .kx-head td { padding-bottom: 12px !important; }
+  .kx-doc .kx-logo { max-height: 60px; max-width: 170px; margin-bottom: 8px; display: block; }
+  .kx-doc .kx-company { font-size: 12pt; font-weight: 700; color: #111827; margin-bottom: 2px; }
+  .kx-doc .kx-title { font-size: 17pt; font-weight: 700; letter-spacing: 0.01em; color: {{ ctx.accent }}; text-transform: uppercase; line-height: 1.1; white-space: nowrap; }
+  .kx-doc .kx-badge { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 3px; font-size: 7.5pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .kx-doc .kx-badge-draft, .kx-doc .kx-badge-cancelled { color: #b91c1c; border: 1px solid #b91c1c; }
+  .kx-doc .kx-badge-paid { color: #15803d; border: 1px solid #15803d; }
+  .kx-doc .kx-rule { border-top: 2px solid {{ ctx.accent }}; margin: 0 0 12px 0; }
 
-  .kx-caption { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 3px; }
-  .kx-party-name { font-weight: 700; font-size: 10.5pt; color: #111827; }
-  .kx-meta td { padding: 2px 0; }
-  .kx-meta td.kx-meta-label { color: #6b7280; padding-right: 14px; white-space: nowrap; }
-  .kx-meta td.kx-meta-value { text-align: right; font-weight: 600; white-space: nowrap; }
+  .kx-doc .kx-caption { font-size: 7pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 2px; }
+  .kx-doc .kx-party-name { font-weight: 700; font-size: 10pt; color: #111827; }
+  .kx-doc .kx-meta td { padding: 1px 0 !important; }
+  .kx-doc .kx-meta td.kx-meta-label { color: #6b7280; padding-right: 14px !important; white-space: nowrap; }
+  .kx-doc .kx-meta td.kx-meta-value { text-align: right; font-weight: 600; white-space: nowrap; }
 
-  .kx-items { margin-top: 18px; }
-  .kx-items th { background: #f3f4f6; color: #374151; font-size: 7.5pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 7px 8px; text-align: left; border-bottom: 1.5px solid {{ ctx.accent }}; }
-  .kx-items td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; }
-  .kx-items .kx-num { text-align: right; white-space: nowrap; }
-  .kx-item-desc { color: #6b7280; font-size: 8.5pt; margin-top: 2px; }
+  .kx-doc .kx-items { margin-top: 16px; }
+  .kx-doc .kx-items th { background: #f3f4f6; color: #374151; font-size: 7pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 8px !important; text-align: left; border-bottom: 1.5px solid {{ ctx.accent }}; }
+  .kx-doc .kx-items td { padding: 6px 8px !important; border-bottom: 1px solid #e5e7eb; }
+  .kx-doc .kx-items .kx-num { text-align: right; white-space: nowrap; }
+  .kx-doc .kx-item-desc { color: #6b7280; font-size: 8pt; margin-top: 1px; }
 
-  .kx-totals { width: 46%; margin-left: auto; margin-top: 10px; }
-  .kx-totals td { padding: 4px 8px; }
-  .kx-totals td.kx-total-label { color: #4b5563; }
-  .kx-totals td.kx-total-value { text-align: right; white-space: nowrap; }
-  .kx-totals tr.kx-grand td { border-top: 1.5px solid {{ ctx.accent }}; font-weight: 700; font-size: 11.5pt; color: #111827; padding-top: 7px; }
-  .kx-totals tr.kx-due td { font-weight: 700; color: #111827; background: #f3f4f6; }
-  .kx-words { text-align: right; font-style: italic; color: #6b7280; font-size: 8.5pt; margin-top: 4px; }
+  .kx-doc .kx-totals { width: 48%; margin-left: auto; margin-top: 8px; }
+  .kx-doc .kx-totals td { padding: 3px 8px !important; }
+  .kx-doc .kx-totals td.kx-total-label { color: #4b5563; }
+  .kx-doc .kx-totals td.kx-total-value { text-align: right; white-space: nowrap; }
+  .kx-doc .kx-totals tr.kx-grand td { border-top: 1.5px solid {{ ctx.accent }}; font-weight: 700; font-size: 11pt; color: #111827; padding-top: 6px !important; }
+  .kx-doc .kx-totals tr.kx-due td { font-weight: 700; color: #111827; background: #f3f4f6; }
+  .kx-doc .kx-words { text-align: right; font-style: italic; color: #6b7280; font-size: 8pt; margin-top: 3px; padding-right: 8px; }
 
-  .kx-box { border: 1px solid #e5e7eb; border-radius: 4px; padding: 10px 12px; }
-  .kx-section { margin-top: 18px; }
-  .kx-footer { margin-top: 26px; border-top: 1px solid #e5e7eb; padding-top: 8px; font-size: 8pt; color: #6b7280; }
-  .kx-qr { width: 96px; height: 96px; }
+  .kx-doc .kx-box { border: 1px solid #e5e7eb; border-radius: 4px; padding: 9px 12px; }
+  .kx-doc .kx-section { margin-top: 16px; }
+  .kx-doc .kx-sign td.kx-sign-line { border-top: 1px solid #9ca3af; padding-top: 4px !important; }
+  .kx-doc .kx-footer { margin-top: 22px; border-top: 1px solid #e5e7eb; padding-top: 7px; font-size: 7.5pt; color: #6b7280; }
+  .kx-doc .kx-qr { width: 92px; height: 92px; }
 </style>
 {%- endmacro -%}
 
@@ -89,7 +95,7 @@
     rows: list of (label, value); empty values are skipped. -#}
 {%- macro parties(caption, name, address, tax_id, rows) -%}
 <table><tr>
-  <td style="width: 55%; padding-right: 20px;">
+  <td class="kx-gap" style="width: 55%;">
     <div class="kx-caption">{{ _(caption) }}</div>
     <div class="kx-party-name">{{ name or "" }}</div>
     {% if address %}<div class="kx-muted kx-small">{{ address }}</div>{% endif %}
