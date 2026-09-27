@@ -334,6 +334,8 @@ class TestEnsureHelpers(IntegrationTestCase):
 		self.assertEqual(frappe.db.count("Price List", {"price_list_name": "Standard Buying"}), 1)
 
 	def test_ensure_global_defaults_sets_company_and_currency(self):
+		# Global Defaults.default_company is a Link: the Company has to exist first.
+		provision_company(NEW_COMPANY)
 		_ensure_global_defaults(NEW_COMPANY, "Kenya", "KES")
 		global_defaults = frappe.get_single("Global Defaults")
 		self.assertEqual(global_defaults.default_company, NEW_COMPANY)
