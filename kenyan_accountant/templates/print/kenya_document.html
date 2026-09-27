@@ -59,6 +59,14 @@
   .kx-doc .kx-sign td.kx-sign-line { border-top: 1px solid #9ca3af; padding-top: 4px !important; }
   .kx-doc .kx-footer { margin-top: 22px; border-top: 1px solid #e5e7eb; padding-top: 7px; font-size: 7.5pt; color: #6b7280; }
   .kx-doc .kx-qr { width: 92px; height: 92px; }
+  .kx-doc .kx-pin { font-size: 8pt; font-weight: 600; color: #374151; margin-top: 2px; }
+  .kx-doc .kx-contact { white-space: nowrap; }
+
+  /* Summary band (invoices) and amount panel (receipts): the number the reader came for. */
+  .kx-doc .kx-band { background: #f3f4f6; border-left: 4px solid {{ ctx.accent }}; margin: 0 0 14px 0; }
+  .kx-doc .kx-band td { padding: 9px 14px !important; vertical-align: middle; }
+  .kx-doc .kx-band-value { font-size: 10pt; font-weight: 700; color: #111827; white-space: nowrap; }
+  .kx-doc .kx-band-amount { font-size: 15pt; font-weight: 700; color: {{ ctx.accent }}; white-space: nowrap; }
 </style>
 {%- endmacro -%}
 
@@ -80,7 +88,8 @@
     {% if ctx.company.logo %}<img class="kx-logo" src="{{ ctx.company.logo }}" alt="">{% endif %}
     <div class="kx-company">{{ ctx.company.name }}</div>
     {% if ctx.company.address %}<div class="kx-muted kx-small">{{ ctx.company.address }}</div>{% endif %}
-    {% if ctx.company.contact_line %}<div class="kx-muted kx-small">{{ ctx.company.contact_line }}</div>{% endif %}
+    {% if ctx.company.contacts %}<div class="kx-muted kx-small">{% for bit in ctx.company.contacts %}<span class="kx-contact">{{ bit }}</span>{% if not loop.last %} &middot; {% endif %}{% endfor %}</div>{% endif %}
+    {% if ctx.company.tax_id %}<div class="kx-pin">{{ _("KRA PIN") }}: {{ ctx.company.tax_id }}</div>{% endif %}
   </td>
   <td class="kx-right" style="width: 42%;">
     <div class="kx-title">{{ _(ctx.title) }}</div>
@@ -99,7 +108,7 @@
     <div class="kx-caption">{{ _(caption) }}</div>
     <div class="kx-party-name">{{ name or "" }}</div>
     {% if address %}<div class="kx-muted kx-small">{{ address }}</div>{% endif %}
-    {% if tax_id %}<div class="kx-small">{{ _("PIN") }}: {{ tax_id }}</div>{% endif %}
+    {% if tax_id %}<div class="kx-pin">{{ _("KRA PIN") }}: {{ tax_id }}</div>{% endif %}
   </td>
   <td style="width: 45%;">
     <table class="kx-meta">
@@ -154,7 +163,7 @@
   <tr><td class="kx-total-label">{{ _("Discount") }}</td><td class="kx-total-value">&minus;{{ money(doc.discount_amount) }}</td></tr>
   {% endif %}
   {% for tax in doc.taxes if tax.tax_amount %}
-  <tr><td class="kx-total-label">{{ tax.description }}</td><td class="kx-total-value">{{ money(tax.tax_amount_after_discount_amount or tax.tax_amount) }}</td></tr>
+  <tr><td class="kx-total-label">{{ kenya_tax_label(tax) }}</td><td class="kx-total-value">{{ money(tax.tax_amount_after_discount_amount or tax.tax_amount) }}</td></tr>
   {% endfor %}
   {% if doc.rounding_adjustment %}
   <tr><td class="kx-total-label">{{ _("Rounding") }}</td><td class="kx-total-value">{{ money(doc.rounding_adjustment) }}</td></tr>
@@ -171,6 +180,18 @@
   {% endif %}
 </table>
 <div class="kx-words">{{ doc.in_words or frappe.utils.money_in_words(grand, doc.currency) }}</div>
+{%- endmacro -%}
+
+{#- cells: list of (label, value); the last one is the amount, shown large. -#}
+{%- macro band(cells) -%}
+<table class="kx-band"><tr>
+  {% for label, value in cells if value %}
+  <td{% if loop.last %} class="kx-right"{% endif %}>
+    <div class="kx-caption">{{ _(label) }}</div>
+    <div class="{{ 'kx-band-amount' if loop.last else 'kx-band-value' }}">{{ value }}</div>
+  </td>
+  {% endfor %}
+</tr></table>
 {%- endmacro -%}
 
 {%- macro payment_details(ctx, reference) -%}

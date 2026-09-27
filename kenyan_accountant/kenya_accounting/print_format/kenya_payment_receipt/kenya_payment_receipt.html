@@ -1,6 +1,6 @@
 {#- Payment Entry: "Payment Receipt" for money received, "Payment Voucher" for money
     paid out, "Transfer Voucher" between our own accounts. -#}
-{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, money, footer -%}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, band, parties, money, footer -%}
 {%- set ctx = kenya_print_context(doc) -%}
 {%- set receiving = doc.payment_type == "Receive" -%}
 {%- set amount = doc.received_amount if receiving else doc.paid_amount -%}
@@ -18,19 +18,18 @@
       [
         ("Receipt No." if receiving else "Voucher No.", doc.name),
         ("Date", frappe.utils.formatdate(doc.posting_date)),
-        ("Mode of Payment", doc.mode_of_payment),
-        ("Transaction Ref.", doc.reference_no),
         ("Ref. Date", frappe.utils.formatdate(doc.reference_date) if doc.reference_date else ""),
       ]
   ) }}
 
-  <table class="kx-totals" style="width: 100%; margin-top: 18px;">
-    <tr class="kx-grand">
-      <td class="kx-total-label">{{ _("Amount Received") if receiving else _("Amount Paid") }} {{ currency }}</td>
-      <td class="kx-total-value">{{ money(amount) }}</td>
-    </tr>
-  </table>
-  <div class="kx-words">{{ frappe.utils.money_in_words(amount, currency) }}</div>
+  <div class="kx-section">
+  {{ band([
+      ("Paid By", doc.mode_of_payment),
+      ("Transaction Ref.", doc.reference_no),
+      (("Amount Received " if receiving else "Amount Paid ") ~ currency, money(amount)),
+  ]) }}
+  </div>
+  <div class="kx-words" style="margin-top: -8px;">{{ frappe.utils.money_in_words(amount, currency) }}</div>
 
   {% if doc.references %}
   <table class="kx-items">

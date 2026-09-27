@@ -44,6 +44,7 @@ jinja = {
 		"kenyan_accountant.printing.kenya_print_context",
 		"kenyan_accountant.printing.kenya_qty",
 		"kenyan_accountant.printing.kenya_pct",
+		"kenyan_accountant.printing.kenya_tax_label",
 	],
 }
 

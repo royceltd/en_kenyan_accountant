@@ -1,4 +1,4 @@
-{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, items_table, totals, payment_details, terms, footer -%}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, items_table, totals, terms, footer -%}
 {%- set ctx = kenya_print_context(doc) -%}
 {{ styles(ctx) }}
 <div class="kx-doc">
@@ -19,7 +19,6 @@
   {{ items_table(doc, ctx) }}
   {{ totals(doc, ctx) }}
 
-  {{ payment_details(ctx, doc.name) }}
   {{ terms(doc) }}
 
   {{ footer(

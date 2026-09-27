@@ -14,6 +14,7 @@ and never again, so a client's own default survives every release.
 
 import base64
 import json
+import re
 
 import frappe
 from frappe.utils import cint, flt
@@ -93,7 +94,8 @@ def kenya_print_context(doc) -> frappe._dict:
 		accent=settings.get("print_accent_color") or NEUTRAL_ACCENT,
 		payment_details=settings.get("payment_details") or "",
 		company=_company_identity(doc, company),
-		party_address=party_address(doc),
+		party_address=compact_address(party_address(doc)),
+		summary=invoice_summary(doc),
 		use_letter_head=uses_own_letter_head(doc),
 		line_vat=line_vat(doc),
 		# VAT-inclusive prices: lines print their VAT-exclusive (net) figures, so
@@ -203,6 +205,42 @@ def uses_own_letter_head(doc) -> bool:
 	return (frappe.db.get_value("Letter Head", name, "content") or "").strip() != (shipped or "").strip()
 
 
+def invoice_summary(doc) -> frappe._dict | None:
+	"""The three things a payer looks for first, for the band under the header of a
+	sales invoice. None for anything else (returns included)."""
+	if doc.doctype != "Sales Invoice" or doc.get("is_return"):
+		return None
+	grand = flt(doc.get("rounded_total") or doc.get("grand_total"))
+	due = flt(doc.get("outstanding_amount")) if cint(doc.get("docstatus")) == 1 else grand
+	return frappe._dict(
+		number=doc.name,
+		due_date=frappe.utils.formatdate(doc.due_date) if doc.get("due_date") else "",
+		amount_due=due,
+		currency=doc.get("currency"),
+	)
+
+
+def compact_address(address_html) -> str:
+	"""Frappe's address display is one line per field ("Vision Plaza<br>P.O. Box
+	...<br>Nairobi<br>Kenya<br>"). On a document header that's five lines of height
+	for one fact; print it as one line that wraps naturally."""
+	if not address_html:
+		return ""
+	lines = re.split(r"<br\s*/?>|\n", address_html)
+	parts = [re.sub(r"<[^>]+>", "", line).strip().strip(",") for line in lines]
+	return ", ".join(part for part in parts if part)
+
+
+def kenya_tax_label(tax) -> str:
+	"""A tax row's description is the accounting template's name ("Kenya Standard
+	VAT 16% - Sales"). Customers see "VAT (16%)"."""
+	description = tax.get("description") or ""
+	if "vat" in description.lower() or "vat" in (tax.get("account_head") or "").lower():
+		rate = flt(tax.get("rate"))
+		return f"{frappe._('VAT')} ({kenya_pct(rate)})" if rate else frappe._("VAT")
+	return description
+
+
 def kenya_qty(value) -> str:
 	"""1.00 -> "1", 2.5 -> "2.5": whole units print without decimals."""
 	value = flt(value, 3)
@@ -229,22 +267,17 @@ def _print_settings(company) -> dict:
 
 def _company_identity(doc, company) -> frappe._dict:
 	if not company:
-		return frappe._dict(name="", logo="", address="", tax_id="", contact_line="")
+		return frappe._dict(name="", logo="", address="", tax_id="", contacts=[])
 	values = frappe.db.get_value(
 		"Company", company, ["company_name", "company_logo", "tax_id", "phone_no", "email", "website"], as_dict=True
 	) or frappe._dict()
-	contact = [
-		f"{frappe._('PIN')}: {values.tax_id}" if values.tax_id else "",
-		values.phone_no or "",
-		values.email or "",
-		values.website or "",
-	]
 	return frappe._dict(
 		name=values.company_name or company,
 		logo=_inline_image(values.company_logo),
-		address=_company_address(doc, company),
+		address=compact_address(_company_address(doc, company)),
 		tax_id=values.tax_id or "",
-		contact_line="  ·  ".join(bit for bit in contact if bit),
+		# Rendered as separate no-wrap pieces, so a wrap never leaves a dangling "·".
+		contacts=[bit for bit in (values.phone_no, values.email, values.website) if bit],
 	)
 
 
