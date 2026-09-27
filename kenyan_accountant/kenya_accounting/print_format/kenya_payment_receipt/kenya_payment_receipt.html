@@ -79,5 +79,5 @@
     <td style="width: 45%; border-top: 1px solid #9ca3af; padding-top: 4px;" class="kx-small kx-muted">{{ _("Signature & Date") }}</td>
   </tr></table>
 
-  {{ footer(_("Thank you for your payment.") if receiving else _("This is a computer-generated document."), footer, no_letterhead) }}
+  {{ footer(_("Thank you for your payment.") if receiving else _("This is a computer-generated document."), footer, no_letterhead, ctx) }}
 </div>

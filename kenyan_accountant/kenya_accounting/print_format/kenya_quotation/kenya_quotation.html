@@ -25,6 +25,6 @@
   {{ footer(
       (_("Prices are valid until {0}.").format(frappe.utils.formatdate(doc.valid_till)) ~ " " if doc.valid_till else "")
         ~ _("Thank you for the opportunity to quote."),
-      footer, no_letterhead
+      footer, no_letterhead, ctx
   ) }}
 </div>

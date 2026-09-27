@@ -57,9 +57,10 @@
 {%- endmacro -%}
 
 {#- Company identity + document title. A client's own Letter Head, when they've made
-    one (and printing with letterhead is on), replaces our company block entirely. -#}
+    one (and printing with letterhead is on), replaces our company block entirely.
+    ERPNext's stock letterheads don't count (printing.uses_own_letter_head). -#}
 {%- macro header(ctx, letter_head, no_letterhead) -%}
-{%- if letter_head and not no_letterhead %}
+{%- if letter_head and not no_letterhead and ctx.use_letter_head %}
 <div class="kx-letterhead">{{ letter_head }}</div>
 <table class="kx-head"><tr>
   <td class="kx-right">
@@ -185,7 +186,7 @@
 {% endif %}
 {%- endmacro -%}
 
-{%- macro footer(note, letterhead_footer, no_letterhead) -%}
+{%- macro footer(note, letterhead_footer, no_letterhead, ctx) -%}
 <div class="kx-footer">{{ note }}</div>
-{% if letterhead_footer and not no_letterhead %}<div class="kx-letterhead-footer">{{ letterhead_footer }}</div>{% endif %}
+{% if letterhead_footer and not no_letterhead and ctx.use_letter_head %}<div class="kx-letterhead-footer">{{ letterhead_footer }}</div>{% endif %}
 {%- endmacro -%}

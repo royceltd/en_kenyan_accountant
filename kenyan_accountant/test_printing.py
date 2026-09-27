@@ -19,6 +19,7 @@ from kenyan_accountant.printing import (
 	kenya_pct,
 	kenya_qty,
 	set_default_print_formats,
+	uses_own_letter_head,
 )
 from kenyan_accountant.setup_checklist import pending_items
 
@@ -39,6 +40,22 @@ class TestDefaultPrintFormats(IntegrationTestCase):
 
 	def test_sets_ours_where_there_is_no_default(self):
 		frappe.db.delete("Property Setter", PS_FILTERS)
+		self.assertIn("Sales Invoice", set_default_print_formats())
+		self.assertEqual(_default_for("Sales Invoice"), "Kenya Tax Invoice")
+
+	def test_replaces_erpnexts_own_install_default(self):
+		"""ERPNext's installer sets "... with Item Image" before our app installs, on
+		every fresh site. That's not a client's choice."""
+		frappe.db.delete("Property Setter", PS_FILTERS)
+		frappe.make_property_setter(
+			{
+				"doctype": "Sales Invoice",
+				"doctype_or_field": "DocType",
+				"property": "default_print_format",
+				"value": "Sales Invoice with Item Image",
+				"property_type": "Link",
+			}
+		)
 		self.assertIn("Sales Invoice", set_default_print_formats())
 		self.assertEqual(_default_for("Sales Invoice"), "Kenya Tax Invoice")
 
@@ -78,6 +95,22 @@ class TestDefaultPrintFormats(IntegrationTestCase):
 			values = frappe.db.get_value("Print Format", name, ["standard", "doc_type"], as_dict=True)
 			self.assertEqual(values.standard, "Yes", name)
 			self.assertEqual(values.doc_type, doctype, name)
+
+
+class TestLetterHead(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_erpnexts_stock_letterhead_is_not_the_clients_until_edited(self):
+		name = "Company Letterhead - Grey"
+		if not frappe.db.exists("Letter Head", name):
+			self.skipTest("ERPNext's stock letterhead isn't on this site")
+		shipped = frappe.read_file(frappe.get_app_path("erpnext", "accounts", "letterhead", "company_letterhead_grey.html"))
+		frappe.db.set_value("Letter Head", name, "content", shipped)
+		doc = frappe._dict(letter_head=name)
+		self.assertFalse(uses_own_letter_head(doc))
+		frappe.db.set_value("Letter Head", name, "content", shipped + "<p>Our own line</p>")
+		self.assertTrue(uses_own_letter_head(doc))
 
 
 class TestTemplatesCompile(IntegrationTestCase):

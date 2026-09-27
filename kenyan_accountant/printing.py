@@ -26,6 +26,24 @@ DEFAULT_PRINT_FORMATS = {
 	"Payment Entry": "Kenya Payment Receipt",
 }
 
+# What ERPNext's own installer sets as the default before our app is installed
+# (erpnext/setup/install.py set_default_print_formats, v16). Not a client's choice,
+# so ours replaces it; anything else is the client's and is left alone.
+FRAMEWORK_DEFAULT_PRINT_FORMATS = {
+	"Sales Invoice": "Sales Invoice with Item Image",
+	"Purchase Order": "Purchase Order with Item Image",
+	"Purchase Invoice": "Purchase Invoice with Item Image",
+	"Quotation": "Quotation with Item Image",
+}
+
+# ERPNext's installer also creates these letterheads and makes the grey one the
+# default (erpnext/setup/install.py create_letter_head). Left exactly as shipped they
+# are not the client's letterhead, so our own header is used instead of them.
+STOCK_LETTER_HEADS = {
+	"Company Letterhead": "company_letterhead.html",
+	"Company Letterhead - Grey": "company_letterhead_grey.html",
+}
+
 # Neutral on purpose: a partner's clients (ADR-022) must not print in Royce's colour.
 # A client picks their own in Kenya Accounting Settings > Printed Documents.
 NEUTRAL_ACCENT = "#1f2937"
@@ -35,18 +53,21 @@ MAX_LOGO_BYTES = 2 * 1024 * 1024
 
 
 def set_default_print_formats(formats: dict | None = None) -> list:
-	"""Makes each of our print formats its doctype's default, but only where the
-	site has no default yet. Runs at install, never on migrate: once a client picks
-	their own default ("Set as default" and Customize Form both write the same
-	Property Setter), nothing we ship touches it again. Returns the doctypes set."""
+	"""Makes each of our print formats its doctype's default, unless the client has
+	already chosen one: replaces only an empty default or ERPNext's own install-time
+	default. Runs at install, never on migrate, so once a client picks their own
+	default ("Set as default" and Customize Form both write the same Property Setter)
+	nothing we ship touches it again. Returns the doctypes set."""
 	done = []
 	for doctype, print_format in (formats or DEFAULT_PRINT_FORMATS).items():
 		if not frappe.db.exists("Print Format", print_format):
 			continue
-		if frappe.db.exists(
+		current = frappe.db.get_value(
 			"Property Setter",
 			{"doc_type": doctype, "doctype_or_field": "DocType", "property": "default_print_format"},
-		):
+			"value",
+		)
+		if current and current != FRAMEWORK_DEFAULT_PRINT_FORMATS.get(doctype):
 			continue
 		frappe.make_property_setter(
 			{
@@ -72,6 +93,7 @@ def kenya_print_context(doc) -> frappe._dict:
 		accent=settings.get("print_accent_color") or NEUTRAL_ACCENT,
 		payment_details=settings.get("payment_details") or "",
 		company=_company_identity(doc, company),
+		use_letter_head=uses_own_letter_head(doc),
 		line_vat=line_vat(doc),
 		# VAT-inclusive prices: lines print their VAT-exclusive (net) figures, so
 		# "Subtotal (excl. VAT)" + VAT = Total holds either way.
@@ -136,6 +158,22 @@ def line_vat(doc) -> dict:
 				pass
 		rows[item.name] = {"rate": rate, "amount": flt(item.get("net_amount")) * rate / 100}
 	return rows
+
+
+def uses_own_letter_head(doc) -> bool:
+	"""Whether the letterhead Frappe will print with is one the client made or edited.
+	ERPNext's stock letterheads, untouched, don't count: our header is better."""
+	name = doc.get("letter_head") or frappe.db.get_value("Letter Head", {"is_default": 1, "disabled": 0}, "name")
+	if not name:
+		return False
+	stock_file = STOCK_LETTER_HEADS.get(name)
+	if not stock_file:
+		return True
+	try:
+		shipped = frappe.read_file(frappe.get_app_path("erpnext", "accounts", "letterhead", stock_file))
+	except Exception:
+		return True
+	return (frappe.db.get_value("Letter Head", name, "content") or "").strip() != (shipped or "").strip()
 
 
 def kenya_qty(value) -> str:
