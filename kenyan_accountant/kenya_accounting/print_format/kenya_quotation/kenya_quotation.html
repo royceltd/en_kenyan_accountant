@@ -1,0 +1,30 @@
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, items_table, totals, payment_details, terms, footer -%}
+{%- set ctx = kenya_print_context(doc) -%}
+{{ styles(ctx) }}
+<div class="kx-doc">
+  {{ header(ctx, letter_head, no_letterhead) }}
+
+  {{ parties(
+      "Prepared For",
+      doc.customer_name or doc.party_name,
+      doc.address_display,
+      frappe.db.get_value("Customer", doc.party_name, "tax_id") if doc.quotation_to == "Customer" else "",
+      [
+        ("Quotation No.", doc.name),
+        ("Date", frappe.utils.formatdate(doc.transaction_date)),
+        ("Valid Until", frappe.utils.formatdate(doc.valid_till) if doc.valid_till else ""),
+      ]
+  ) }}
+
+  {{ items_table(doc, ctx) }}
+  {{ totals(doc, ctx) }}
+
+  {{ payment_details(ctx, doc.name) }}
+  {{ terms(doc) }}
+
+  {{ footer(
+      (_("Prices are valid until {0}.").format(frappe.utils.formatdate(doc.valid_till)) ~ " " if doc.valid_till else "")
+        ~ _("Thank you for the opportunity to quote."),
+      footer, no_letterhead
+  ) }}
+</div>

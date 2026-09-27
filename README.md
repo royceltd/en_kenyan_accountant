@@ -6,6 +6,19 @@ Kenya Chart of Accounts, VAT and WHT configuration for ERPNext
 
 - [WHT and VAT Withholding (WVAT)](docs/vat-withholding.md)
 
+### Printed documents
+
+Standard print formats for Sales Invoice (prints as Tax Invoice / Invoice / Credit
+Note), Quotation, Purchase Order, Purchase Invoice and Payment Entry (Payment Receipt /
+Voucher). They print the Company's logo, address and KRA PIN (or the client's own
+Letter Head), and the payment details and accent colour from Kenya Accounting
+Settings > Printed Documents.
+
+They become each doctype's default once, at install. A client who sets another
+format as default keeps it through every update; a client who wants a different
+layout duplicates ours (standard formats can't be edited in place), and fixes to
+ours reach everyone still using them.
+
 ### Installation
 
 You can install this app using the [bench](https://github.com/frappe/bench) CLI:

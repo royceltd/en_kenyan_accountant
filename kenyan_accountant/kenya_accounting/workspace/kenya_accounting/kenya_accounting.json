@@ -1,0 +1,288 @@
+{
+ "app": "kenyan_accountant",
+ "charts": [],
+ "content": "[{\"id\": \"ka-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Kenya Accounting</b></span>\", \"col\": 12}}, {\"id\": \"ka-para\", \"type\": \"paragraph\", \"data\": {\"text\": \"Kenya VAT and withholding tax, your tax invoices, and the registers you file from.\", \"col\": 12}}, {\"id\": \"ka-spacer\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ka-shortcut-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Kenya Accounting Settings\", \"col\": 4}}, {\"id\": \"ka-shortcut-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Invoice\", \"col\": 4}}, {\"id\": \"ka-shortcut-2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Withholding Tax Credit\", \"col\": 4}}, {\"id\": \"ka-shortcut-3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Register\", \"col\": 4}}, {\"id\": \"ka-shortcut-4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Purchase Register\", \"col\": 4}}, {\"id\": \"ka-shortcut-5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tax Withholding Details\", \"col\": 4}}, {\"id\": \"ka-spacer-2\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ka-card-setup\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}, {\"id\": \"ka-card-records\", \"type\": \"card\", \"data\": {\"card_name\": \"Tax Records\", \"col\": 4}}, {\"id\": \"ka-card-reports\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}]",
+ "creation": "2026-09-28 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "accounting",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Kenya Accounting",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kenya Accounting Settings",
+   "link_count": 0,
+   "link_to": "Kenya Accounting Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link",
+   "description": "Your VAT and WHT accounts, tax templates, payment details and print colour."
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Company",
+   "link_count": 0,
+   "link_to": "Company",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link",
+   "description": "Logo, KRA PIN (Tax ID), phone and email printed on your documents."
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Letter Head",
+   "link_count": 0,
+   "link_to": "Letter Head",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link",
+   "description": "Optional: your own designed header for printed documents."
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Taxes and Charges Template",
+   "link_count": 0,
+   "link_to": "Sales Taxes and Charges Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Purchase Taxes and Charges Template",
+   "link_count": 0,
+   "link_to": "Purchase Taxes and Charges Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tax Withholding Category",
+   "link_count": 0,
+   "link_to": "Tax Withholding Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mode of Payment",
+   "link_count": 0,
+   "link_to": "Mode of Payment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link",
+   "description": "M-Pesa, bank and cash accounts."
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tax Records",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Withholding Tax Credit",
+   "link_count": 0,
+   "link_to": "Withholding Tax Credit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link",
+   "description": "WHT and VAT withheld, by certificate."
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Purchase Invoice",
+   "link_count": 0,
+   "link_to": "Purchase Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Payment Entry",
+   "link_count": 0,
+   "link_to": "Payment Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sales Register",
+   "link_count": 0,
+   "link_to": "Sales Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Purchase Register",
+   "link_count": 0,
+   "link_to": "Purchase Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Tax Withholding Details",
+   "link_count": 0,
+   "link_to": "Tax Withholding Details",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "General Ledger",
+   "link_count": 0,
+   "link_to": "General Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Trial Balance",
+   "link_count": 0,
+   "link_to": "Trial Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Accounts Receivable",
+   "link_count": 0,
+   "link_to": "Accounts Receivable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Accounts Payable",
+   "link_count": 0,
+   "link_to": "Accounts Payable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Kenya Accounting",
+ "name": "Kenya Accounting",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Kenya Accounting Settings",
+   "link_to": "Kenya Accounting Settings",
+   "stats_filter": "{}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "stats_filter": "{}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Withholding Tax Credit",
+   "link_to": "Withholding Tax Credit",
+   "stats_filter": "{}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Sales Register",
+   "link_to": "Sales Register",
+   "stats_filter": "{}",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Purchase Register",
+   "link_to": "Purchase Register",
+   "stats_filter": "{}",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Tax Withholding Details",
+   "link_to": "Tax Withholding Details",
+   "stats_filter": "{}",
+   "type": "Report"
+  }
+ ],
+ "title": "Kenya Accounting"
+}

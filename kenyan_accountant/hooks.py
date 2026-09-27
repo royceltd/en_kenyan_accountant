@@ -13,13 +13,11 @@ app_license = "mit"
 # at doctype sync. Same rationale royce_etims documents for its own erpnext dependency.
 required_apps = ["erpnext"]
 
-# Ships our own branded print layouts as the default for every new tenant --
-# installed automatically via bench install-app, no per-tenant manual setup step.
-# The Property Setters below are what actually make each one the DEFAULT a
-# customer sees without picking it from a dropdown first -- a Print Format
-# record alone just makes one *available*, it doesn't select it (Frappe's
-# print dialog reads DocType meta.default_print_format, which only a
-# Property Setter on the standard doctype can set without forking it).
+# Only schema ships as a fixture (re-imported on every migrate). Anything a client
+# can change -- which print format is the default, notifications, settings -- is
+# set once at install and then belongs to them (ADR-023 in royce_ip). The print
+# formats themselves are standard (kenya_accounting/print_format/), so fixes to them
+# reach every client still using them; a client customises by duplicating one.
 fixtures = [
 	{
 		"doctype": "Custom Field",
@@ -28,31 +26,26 @@ fixtures = [
 			["module", "=", "Kenya Accounting"],
 		],
 	},
-	{
-		"doctype": "Client Script",
-		"filters": [["module", "=", "Kenya Accounting"]],
-	},
-	{
-		"doctype": "Print Format",
-		"filters": [["name", "in", [
-			"Kenya Tax Invoice",
-			"Kenya Quotation",
-			"Kenya Purchase Order",
-			"Kenya Purchase Invoice",
-			"Kenya Payment Receipt",
-		]]],
-	},
-	{
-		"doctype": "Property Setter",
-		"filters": [["name", "in", [
-			"Sales Invoice-main-default_print_format",
-			"Quotation-main-default_print_format",
-			"Purchase Order-main-default_print_format",
-			"Purchase Invoice-main-default_print_format",
-			"Payment Entry-main-default_print_format",
-		]]],
-	},
 ]
+
+after_install = "kenyan_accountant.install.after_install"
+
+# The Payment Entry "Kenya Tax" buttons. App code, not a Client Script record, so a
+# client can't be left with a stale or duplicated copy.
+doctype_js = {"Payment Entry": "public/js/payment_entry.js"}
+
+# "Finish setting up your documents" checklist (setup_checklist.py).
+app_include_js = "/assets/kenyan_accountant/js/kenya_setup.js"
+extend_bootinfo = "kenyan_accountant.setup_checklist.extend_bootinfo"
+
+# Used by the print formats (printing.py).
+jinja = {
+	"methods": [
+		"kenyan_accountant.printing.kenya_print_context",
+		"kenyan_accountant.printing.kenya_qty",
+		"kenyan_accountant.printing.kenya_pct",
+	],
+}
 
 # See kenyan_accountant.setup.withholding's module docstring for why WHT
 # withheld BY this company (Purchase Invoice, ERPNext's own engine) and
@@ -72,15 +65,8 @@ doc_events = {
 }
 
 # Each item in the list will be shown as an app in the apps page
-add_to_apps_screen = [
-	{
-		"name": "kenyan_accountant",
-		"logo": "/assets/kenyan_accountant/logo.svg",
-		"title": "Kenya Accounting",
-		"route": "/app/kenya-accounting-settings",
-		"has_permission": "kenyan_accountant.check_app_permission",
-	}
-]
+# The desk icon is desktop_icon/kenya_accounting.json (opens the workspace), not
+# an add_to_apps_screen entry: that one only ever pointed at the settings form.
 
 # Includes in <head>
 # ------------------

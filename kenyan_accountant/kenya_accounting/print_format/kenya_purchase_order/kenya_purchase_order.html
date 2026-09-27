@@ -1,0 +1,31 @@
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, items_table, totals, terms, footer -%}
+{%- set ctx = kenya_print_context(doc) -%}
+{{ styles(ctx) }}
+<div class="kx-doc">
+  {{ header(ctx, letter_head, no_letterhead) }}
+
+  {{ parties(
+      "Supplier",
+      doc.supplier_name,
+      doc.address_display,
+      frappe.db.get_value("Supplier", doc.supplier, "tax_id"),
+      [
+        ("PO No.", doc.name),
+        ("Date", frappe.utils.formatdate(doc.transaction_date)),
+        ("Required By", frappe.utils.formatdate(doc.schedule_date) if doc.schedule_date else ""),
+      ]
+  ) }}
+
+  {% if doc.shipping_address_display %}
+  <div class="kx-section">
+    <div class="kx-caption">{{ _("Deliver To") }}</div>
+    <div class="kx-small">{{ doc.shipping_address_display }}</div>
+  </div>
+  {% endif %}
+
+  {{ items_table(doc, ctx) }}
+  {{ totals(doc, ctx) }}
+  {{ terms(doc) }}
+
+  {{ footer(_("Please quote this PO number on your invoice and delivery note."), footer, no_letterhead) }}
+</div>

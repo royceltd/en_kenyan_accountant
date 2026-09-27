@@ -1,0 +1,83 @@
+{#- Payment Entry: "Payment Receipt" for money received, "Payment Voucher" for money
+    paid out, "Transfer Voucher" between our own accounts. -#}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, money, footer -%}
+{%- set ctx = kenya_print_context(doc) -%}
+{%- set receiving = doc.payment_type == "Receive" -%}
+{%- set amount = doc.received_amount if receiving else doc.paid_amount -%}
+{%- set currency = doc.paid_to_account_currency if receiving else doc.paid_from_account_currency -%}
+{%- set party_pin = frappe.db.get_value(doc.party_type, doc.party, "tax_id") if doc.party_type in ("Customer", "Supplier") and doc.party else "" -%}
+{{ styles(ctx) }}
+<div class="kx-doc">
+  {{ header(ctx, letter_head, no_letterhead) }}
+
+  {{ parties(
+      "Received From" if receiving else ("Paid To" if doc.party else "Transfer"),
+      doc.party_name or doc.party or (doc.paid_from ~ " to " ~ doc.paid_to),
+      "",
+      party_pin,
+      [
+        ("Receipt No." if receiving else "Voucher No.", doc.name),
+        ("Date", frappe.utils.formatdate(doc.posting_date)),
+        ("Mode of Payment", doc.mode_of_payment),
+        ("Transaction Ref.", doc.reference_no),
+        ("Ref. Date", frappe.utils.formatdate(doc.reference_date) if doc.reference_date else ""),
+      ]
+  ) }}
+
+  <table class="kx-totals" style="width: 100%; margin-top: 18px;">
+    <tr class="kx-grand">
+      <td class="kx-total-label">{{ _("Amount Received") if receiving else _("Amount Paid") }} {{ currency }}</td>
+      <td class="kx-total-value">{{ money(amount) }}</td>
+    </tr>
+  </table>
+  <div class="kx-words">{{ frappe.utils.money_in_words(amount, currency) }}</div>
+
+  {% if doc.references %}
+  <table class="kx-items">
+    <thead><tr>
+      <th>{{ _("Settles") }}</th>
+      <th class="kx-num" style="width: 16%;">{{ _("Due Date") }}</th>
+      <th class="kx-num" style="width: 20%;">{{ _("Document Total") }}</th>
+      <th class="kx-num" style="width: 20%;">{{ _("Allocated") }}</th>
+    </tr></thead>
+    <tbody>
+    {% for ref in doc.references %}
+      <tr>
+        <td>{{ _(ref.reference_doctype) }} <b>{{ ref.reference_name }}</b></td>
+        <td class="kx-num">{{ frappe.utils.formatdate(ref.due_date) if ref.due_date else "" }}</td>
+        <td class="kx-num">{{ money(ref.total_amount) }}</td>
+        <td class="kx-num">{{ money(ref.allocated_amount) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if doc.deductions %}
+  <div class="kx-section">
+    <div class="kx-caption">{{ _("Deductions (e.g. tax withheld)") }}</div>
+    <table class="kx-meta" style="width: auto;">
+    {% for row in doc.deductions %}
+      <tr><td class="kx-meta-label">{{ row.description or row.account }}</td><td class="kx-meta-value">{{ money(row.amount | abs) }}</td></tr>
+    {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  {#- ERPNext fills Remarks with an auto-generated "Amount KES ... received from ..."
+      line when the user leaves it blank; only print what a person actually wrote. -#}
+  {% if doc.remarks and not doc.remarks.startswith("Amount ") %}
+  <div class="kx-section">
+    <div class="kx-caption">{{ _("Remarks") }}</div>
+    <div class="kx-small">{{ doc.remarks }}</div>
+  </div>
+  {% endif %}
+
+  <table class="kx-section" style="margin-top: 44px;"><tr>
+    <td style="width: 45%; border-top: 1px solid #9ca3af; padding-top: 4px;" class="kx-small kx-muted">{{ _("Received by") if receiving else _("Approved by") }}</td>
+    <td style="width: 10%;"></td>
+    <td style="width: 45%; border-top: 1px solid #9ca3af; padding-top: 4px;" class="kx-small kx-muted">{{ _("Signature & Date") }}</td>
+  </tr></table>
+
+  {{ footer(_("Thank you for your payment.") if receiving else _("This is a computer-generated document."), footer, no_letterhead) }}
+</div>

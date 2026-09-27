@@ -27,6 +27,10 @@
   "sales_vat_template",
   "purchase_vat_template",
   "purchase_vat_inclusive_template",
+  "printing_section",
+  "payment_details",
+  "column_break_printing",
+  "print_accent_color",
   "review_section",
   "reviewed"
  ],
@@ -164,6 +168,28 @@
    "options": "Purchase Taxes and Charges Template"
   },
   {
+   "fieldname": "printing_section",
+   "fieldtype": "Section Break",
+   "label": "Printed Documents",
+   "description": "Your logo, address and KRA PIN come from the Company record. Set them there."
+  },
+  {
+   "fieldname": "payment_details",
+   "fieldtype": "Small Text",
+   "label": "How Customers Pay You",
+   "description": "Printed on invoices and quotations. For example:\nM-Pesa Paybill 123456, Account: your invoice number\nBank: Equity Bank, A/C 0123456789, Branch: Westlands"
+  },
+  {
+   "fieldname": "column_break_printing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "print_accent_color",
+   "fieldtype": "Color",
+   "label": "Accent Colour",
+   "description": "Used for the document title and lines on printed documents. Leave blank for dark grey."
+  },
+  {
    "fieldname": "review_section",
    "fieldtype": "Section Break",
    "label": "Review & Activation"
@@ -178,7 +204,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-25 09:00:00.000000",
+ "modified": "2026-09-28 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Kenya Accounting",
  "name": "Kenya Accounting Settings",
