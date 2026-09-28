@@ -161,6 +161,18 @@ class IntegrationTestWithholdingAccuracy(IntegrationTestCase):
 
 	# --- Claim WHT Credits ----------------------------------------------------
 
+	def _post_wht_receivable(self, settings, amount):
+		"""A real WHT Receivable balance, as a customer payment's deduction would
+		leave. WHT Receivable is Debit-only, so a claim can't take out more than
+		was actually booked -- the credits below are register rows, not postings."""
+		je = frappe.new_doc("Journal Entry")
+		je.company = TEST_COMPANY
+		je.posting_date = frappe.utils.today()
+		je.append("accounts", {"account": settings.wht_receivable_account, "debit_in_account_currency": amount})
+		je.append("accounts", {"account": settings.income_tax_payable_account, "credit_in_account_currency": amount})
+		je.insert()
+		je.submit()
+
 	def _credit(self, settings, tax_type="WHT", amount=2250, certificate="KRA-WHT-TEST-1"):
 		self._fake_party("Customer", "_Test Customer")
 		account = settings.wht_receivable_account if tax_type == "WHT" else settings.vat_withholding_receivable_account
@@ -193,6 +205,7 @@ class IntegrationTestWithholdingAccuracy(IntegrationTestCase):
 
 	def test_submit_ticks_claimed_and_cancel_unticks(self):
 		settings = self._settings()
+		self._post_wht_receivable(settings, 2250)
 		a = self._credit(settings)
 		je = frappe.get_doc("Journal Entry", make_wht_claim_journal_entry([a.name]))
 		je.submit()
@@ -205,13 +218,15 @@ class IntegrationTestWithholdingAccuracy(IntegrationTestCase):
 
 	def test_submit_refuses_an_edited_amount(self):
 		settings = self._settings()
+		self._post_wht_receivable(settings, 2250)
 		a = self._credit(settings, amount=2250)
 		je = frappe.get_doc("Journal Entry", make_wht_claim_journal_entry([a.name]))
 		for row in je.accounts:
 			row.debit_in_account_currency = row.debit_in_account_currency and 2000
 			row.credit_in_account_currency = row.credit_in_account_currency and 2000
 		je.save()
-		self.assertRaises(frappe.ValidationError, je.submit)
+		with self.assertRaisesRegex(frappe.ValidationError, "was drafted to claim"):
+			je.submit()
 
 	def test_deleting_the_draft_frees_the_credits(self):
 		settings = self._settings()
