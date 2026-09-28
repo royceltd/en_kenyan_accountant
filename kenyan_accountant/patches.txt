@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 kenyan_accountant.patches.v16_2.remove_shipped_client_scripts
 kenyan_accountant.patches.v16_3.add_income_tax_payable_account
+kenyan_accountant.patches.v16_3.add_zero_rated_exempt_item_tax_templates

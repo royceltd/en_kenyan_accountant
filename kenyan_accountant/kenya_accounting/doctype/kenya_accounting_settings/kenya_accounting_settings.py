@@ -7,6 +7,7 @@ from frappe.model.document import Document
 
 from kenyan_accountant.setup.accounts import create_core_tax_accounts
 from kenyan_accountant.setup.vat import (
+	create_item_tax_templates,
 	create_tax_categories,
 	create_vat_templates,
 	disable_erpnext_default_kenya_tax_templates,
@@ -60,6 +61,7 @@ class KenyaAccountingSettings(Document):
 			if not self.get(fieldname):
 				self.set(fieldname, template)
 
+		create_item_tax_templates(self.company, accounts)
 		create_wht_categories(self.company, accounts["wht_payable_account"])
 
 		# ERPNext's own country-default "Kenya Tax" template, if this company has

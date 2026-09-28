@@ -15,6 +15,8 @@ from kenyan_accountant.setup.accounts import CORE_TAX_ACCOUNTS, create_core_tax_
 from kenyan_accountant.setup.utils import TEST_COMPANY
 from kenyan_accountant.setup.vat import (
 	TAX_CATEGORIES,
+	ITEM_TAX_TEMPLATES,
+	create_item_tax_templates,
 	create_tax_categories,
 	create_vat_templates,
 	disable_erpnext_default_kenya_tax_templates,
@@ -113,6 +115,31 @@ class TestCreateVatTemplates(IntegrationTestCase):
 		first_run = create_vat_templates(TEST_COMPANY, accounts)
 		second_run = create_vat_templates(TEST_COMPANY, accounts)
 		self.assertEqual(first_run, second_run)
+
+
+class TestCreateItemTaxTemplates(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_zero_rated_and_exempt_are_0_percent_on_both_vat_accounts(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_item_tax_templates(TEST_COMPANY, accounts)
+		self.assertEqual(sorted(templates), sorted(ITEM_TAX_TEMPLATES))
+		for name in templates.values():
+			doc = frappe.get_doc("Item Tax Template", name)
+			self.assertEqual(doc.company, TEST_COMPANY)
+			rates = {row.tax_type: row.tax_rate for row in doc.taxes}
+			self.assertEqual(
+				rates, {accounts["output_vat_account"]: 0, accounts["input_vat_account"]: 0}
+			)
+
+	def test_is_idempotent_and_keeps_a_client_edited_template(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		first = create_item_tax_templates(TEST_COMPANY, accounts)
+		frappe.db.set_value("Item Tax Template", first["KE Exempt"], "disabled", 1)
+		second = create_item_tax_templates(TEST_COMPANY, accounts)
+		self.assertEqual(first, second)
+		self.assertEqual(frappe.db.get_value("Item Tax Template", first["KE Exempt"], "disabled"), 1)
 
 
 class TestCreateWhtCategories(IntegrationTestCase):

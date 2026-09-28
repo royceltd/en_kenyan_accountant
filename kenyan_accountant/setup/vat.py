@@ -21,6 +21,13 @@ TAX_CATEGORIES = [
 
 STANDARD_VAT_RATE = 16
 
+# Item-level VAT treatments. Set on an Item (Taxes table), an Item Tax Template
+# replaces the invoice template's VAT rate for that line only, so a zero-rated or
+# exempt item carries 0% on an otherwise Standard 16% invoice. Two templates, not
+# one "0%": the VAT return reports zero-rated and exempt supplies separately, and
+# only zero-rated supplies keep the right to recover input VAT.
+ITEM_TAX_TEMPLATES = ["KE Zero Rated", "KE Exempt"]
+
 
 def create_tax_categories():
 	"""Create (or find) the standard Kenya Tax Categories. Returns their names."""
@@ -68,6 +75,38 @@ def create_vat_templates(company, accounts):
 		included_in_print_rate=1,
 		is_purchase=True,
 	)
+	return result
+
+
+def create_item_tax_templates(company, accounts):
+	"""0% Item Tax Templates for zero-rated and exempt items, on both the output
+	(sales) and input (purchase) VAT accounts. Found by the 2026-09-28 withholding
+	review: without them a client selling zero-rated or exempt goods had nothing to
+	pick on the item, so those lines were charged the invoice's 16%.
+
+	Returns {title: template_name}. An existing template with the same title is
+	reused untouched (ADR-023: the client owns it once created).
+	"""
+	result = {}
+	for title in ITEM_TAX_TEMPLATES:
+		existing = frappe.db.get_value("Item Tax Template", {"title": title, "company": company}, "name")
+		if not existing:
+			existing = (
+				frappe.get_doc(
+					{
+						"doctype": "Item Tax Template",
+						"title": title,
+						"company": company,
+						"taxes": [
+							{"tax_type": accounts["output_vat_account"], "tax_rate": 0},
+							{"tax_type": accounts["input_vat_account"], "tax_rate": 0},
+						],
+					}
+				)
+				.insert(ignore_permissions=True)
+				.name
+			)
+		result[title] = existing
 	return result
 
 
