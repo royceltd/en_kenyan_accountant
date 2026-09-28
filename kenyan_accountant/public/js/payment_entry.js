@@ -104,21 +104,80 @@ function kenyan_accountant_set_amounts(frm, amount) {
 	frm.events.set_unallocated_amount(frm);
 }
 
+// Typing the net cash into a payment makes erpnext shrink the invoice
+// allocation to that cash, so a full settlement looks like a part payment. When
+// a payment allocates less than an invoice's balance, the dialogs ask which it
+// is instead of guessing: withheld tax is part of what settles the invoice.
+function kenyan_accountant_settles_field(frm) {
+	const refs = frm.doc.references || [];
+	const short = refs.some((r) => flt(r.allocated_amount) && flt(r.allocated_amount) < flt(r.outstanding_amount));
+	if (!short) {
+		return null;
+	}
+	const money = (v) => format_currency(v, frm.doc.paid_from_account_currency);
+	const allocated = refs.reduce((s, r) => s + flt(r.allocated_amount), 0);
+	const balance = refs.reduce(
+		(s, r) => s + (flt(r.allocated_amount) ? Math.max(flt(r.outstanding_amount), flt(r.allocated_amount)) : 0),
+		0
+	);
+	const whole = __("The whole balance of {0} (cash + tax withheld)", [money(balance)]);
+	const part = __("Only {0} of it (a part payment)", [money(allocated)]);
+	return {
+		whole,
+		part,
+		field: {
+			fieldname: "settles",
+			fieldtype: "Select",
+			label: __("This Payment Settles"),
+			options: ["", whole, part].join("\n"),
+			reqd: 1,
+			description: __(
+				"The payment covers less than the invoice balance. If the customer or you withheld tax on the full invoice, choose the whole balance."
+			),
+		},
+	};
+}
+
+function kenyan_accountant_settle_whole(frm) {
+	for (const r of frm.doc.references || []) {
+		if (flt(r.allocated_amount) && flt(r.allocated_amount) < flt(r.outstanding_amount)) {
+			r.allocated_amount = flt(r.outstanding_amount);
+		}
+	}
+	frm.refresh_field("references");
+	frm.events.set_total_allocated_amount(frm);
+}
+
 async function kenyan_accountant_add_vat_withholding(frm, direction) {
 	const r = await frappe.call({
 		method: "kenyan_accountant.setup.withholding.get_vat_withholding_base",
 		args: { company: frm.doc.company, references: frm.doc.references || [] },
 	});
-	const base = r.message || { base: 0, rate: 0, invoices: [] };
+	const base = r.message || { base: 0, base_full: 0, rate: 0, invoices: [] };
+	const settles = kenyan_accountant_settles_field(frm);
 
 	const dialog = new frappe.ui.Dialog({
 		title: __("Add VAT Withholding"),
 		fields: [
+			...(settles
+				? [
+						{
+							...settles.field,
+							onchange() {
+								const choice = dialog.get_value("settles");
+								dialog.set_value(
+									"taxable_amount",
+									choice === settles.whole ? base.base_full : choice === settles.part ? base.base : null
+								);
+							},
+						},
+				  ]
+				: []),
 			{
 				fieldname: "taxable_amount",
 				fieldtype: "Currency",
 				label: __("Taxable (VAT-Exclusive) Value"),
-				default: base.base || undefined,
+				default: settles ? undefined : base.base || undefined,
 				description: __(
 					"VAT Withholding is {0}% of this. Only VAT-rated lines count: zero-rated and exempt items carry no VAT Withholding.",
 					[base.rate]
@@ -129,6 +188,9 @@ async function kenyan_accountant_add_vat_withholding(frm, direction) {
 		],
 		primary_action_label: __("Add"),
 		primary_action(values) {
+			if (settles && values.settles === settles.whole) {
+				kenyan_accountant_settle_whole(frm);
+			}
 			frappe.call({
 				method: "kenyan_accountant.setup.withholding.compute_vat_withholding_amount",
 				args: {
@@ -170,6 +232,9 @@ function kenyan_accountant_vat_breakdown(frm, base) {
 		.map((inv) => {
 			const part = inv.share < 1 ? __(" x {0}% paid now", [flt(inv.share * 100, 2)]) : "";
 			let line = `${frappe.utils.escape_html(inv.invoice)}: ${money(inv.taxable_value)}${part} = <b>${money(inv.base)}</b>`;
+			if (inv.base_full !== inv.base) {
+				line += __(" (whole balance: {0})", [money(inv.base_full)]);
+			}
 			if (inv.deemed_inclusive_base !== undefined) {
 				line += `<br><span class="text-warning">${__(
 					"No VAT charged on this invoice. If it is zero-rated or exempt, there is no VAT Withholding. If the supplier is VAT-registered and simply didn't show VAT, KRA treats the amount as VAT-inclusive: taxable value {0}.",
@@ -200,9 +265,11 @@ function kenyan_accountant_add_wht_withheld(frm) {
 				frappe.msgprint(__("No WHT Receivable account configured for {0} yet.", [frm.doc.company]));
 				return;
 			}
+			const settles = kenyan_accountant_settles_field(frm);
 			const dialog = new frappe.ui.Dialog({
 				title: __("Add WHT Withheld"),
 				fields: [
+					...(settles ? [settles.field] : []),
 					{
 						fieldname: "amount",
 						fieldtype: "Currency",
@@ -222,6 +289,9 @@ function kenyan_accountant_add_wht_withheld(frm) {
 				primary_action_label: __("Add"),
 				primary_action(values) {
 					dialog.hide();
+					if (settles && values.settles === settles.whole) {
+						kenyan_accountant_settle_whole(frm);
+					}
 					const description = values.certificate_number
 						? __("WHT withheld (certificate {0})", [values.certificate_number])
 						: __("WHT withheld");

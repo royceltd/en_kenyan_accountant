@@ -95,7 +95,7 @@ def get_vat_withholding_base(company: str, references) -> dict:
 		frappe.throw(_("{0} has no Kenya Accounting Settings configured yet.").format(company))
 	vat_accounts = {a for a in (settings.output_vat_account, settings.input_vat_account) if a}
 
-	invoices, total = [], 0.0
+	invoices, total, total_full = [], 0.0, 0.0
 	for ref in references:
 		doctype, name = ref.get("reference_doctype"), ref.get("reference_name")
 		allocated = flt(ref.get("allocated_amount"))
@@ -116,12 +116,20 @@ def get_vat_withholding_base(company: str, references) -> dict:
 		invoice_total = flt(invoice.rounded_total) or flt(invoice.grand_total)
 		share = min(allocated / invoice_total, 1) if invoice_total else 0
 		base = flt(taxable * share, 2)
+		# What settling the whole remaining balance would give. Typing the net cash
+		# into a payment first makes erpnext shrink the allocation to that cash, so a
+		# full settlement looks like a part payment; the dialog asks which it is.
+		outstanding = max(flt(ref.get("outstanding_amount")), allocated)
+		share_full = min(outstanding / invoice_total, 1) if invoice_total else 0
 		row = {
 			"doctype": doctype,
 			"invoice": name,
 			"taxable_value": taxable,
 			"share": flt(share, 6),
 			"base": base,
+			"allocated": allocated,
+			"outstanding": outstanding,
+			"base_full": flt(taxable * share_full, 2),
 		}
 		if not taxable:
 			# Could be a zero-rated/exempt supply (no WVAT) or a taxable one with the
@@ -129,8 +137,14 @@ def get_vat_withholding_base(company: str, references) -> dict:
 			row["deemed_inclusive_base"] = flt(allocated * 100 / (100 + STANDARD_VAT_RATE), 2)
 		invoices.append(row)
 		total += base
+		total_full += row["base_full"]
 
-	return {"base": flt(total, 2), "rate": flt(settings.vat_withholding_rate), "invoices": invoices}
+	return {
+		"base": flt(total, 2),
+		"base_full": flt(total_full, 2),
+		"rate": flt(settings.vat_withholding_rate),
+		"invoices": invoices,
+	}
 
 
 @frappe.whitelist()

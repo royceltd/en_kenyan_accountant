@@ -75,8 +75,13 @@ class IntegrationTestWithholdingAccuracy(IntegrationTestCase):
 		for child in doc.get_all_children():
 			child.db_insert()
 
-	def _ref(self, name, allocated):
-		return {"reference_doctype": "Sales Invoice", "reference_name": name, "allocated_amount": allocated}
+	def _ref(self, name, allocated, outstanding=None):
+		return {
+			"reference_doctype": "Sales Invoice",
+			"reference_name": name,
+			"allocated_amount": allocated,
+			"outstanding_amount": outstanding if outstanding is not None else allocated,
+		}
 
 	# --- VAT Withholding base -------------------------------------------------
 
@@ -100,6 +105,16 @@ class IntegrationTestWithholdingAccuracy(IntegrationTestCase):
 		result = get_vat_withholding_base(TEST_COMPANY, [self._ref("_T-SINV-PART", 58000)])
 		self.assertEqual(result["base"], 50000)
 		self.assertEqual(result["invoices"][0]["share"], 0.5)
+
+	def test_net_cash_typed_first_offers_the_whole_balance(self):
+		"""Typing the net cash (83,250) makes erpnext allocate only that much of an
+		87,000 invoice. The base for that allocation is a part-payment figure; the
+		whole-balance figure is what a full settlement with tax withheld needs."""
+		settings = self._settings()
+		self._fake_invoice("_T-SINV-NET", settings.output_vat_account, [(16, 75000)], 87000)
+		result = get_vat_withholding_base(TEST_COMPANY, [self._ref("_T-SINV-NET", 83250, outstanding=87000)])
+		self.assertEqual(result["base_full"], 75000)
+		self.assertAlmostEqual(result["base"], 71767.24, places=2)
 
 	def test_base_adds_up_several_invoices(self):
 		settings = self._settings()
