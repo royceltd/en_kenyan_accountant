@@ -75,7 +75,7 @@ CORE_TAX_ACCOUNTS = [
 		"account_name": "Income Tax Payable",
 		"root_type": "Liability",
 		"group_candidates": ["Duties and Taxes", "Tax Liabilities"],
-		"balance_must_be": None,
+		"balance_must_be": "",  # what Account stores for "no rule"
 	},
 	{
 		"fieldname": "vat_withholding_payable_account",
