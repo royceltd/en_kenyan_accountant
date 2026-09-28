@@ -17,6 +17,7 @@
   "vat_credit_account",
   "wht_receivable_account",
   "wht_payable_account",
+  "income_tax_payable_account",
   "vat_withholding_section",
   "is_vat_withholding_agent",
   "vat_withholding_rate",
@@ -102,6 +103,13 @@
    "fieldname": "wht_payable_account",
    "fieldtype": "Link",
    "label": "WHT Payable to KRA Account",
+   "options": "Account"
+  },
+  {
+   "description": "Your corporation tax liability. WHT that customers withheld from you is set against it when you claim the credits.",
+   "fieldname": "income_tax_payable_account",
+   "fieldtype": "Link",
+   "label": "Income Tax Payable Account",
    "options": "Account"
   },
   {
@@ -204,7 +212,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 00:00:00.000000",
+ "modified": "2026-09-28 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Kenya Accounting",
  "name": "Kenya Accounting Settings",

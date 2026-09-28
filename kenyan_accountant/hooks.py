@@ -63,6 +63,11 @@ doc_events = {
 		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
 		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
 	},
+	"Journal Entry": {
+		"before_submit": "kenyan_accountant.setup.withholding.sync_wht_claims",
+		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_claims",
+		"on_trash": "kenyan_accountant.setup.withholding.sync_wht_claims",
+	},
 }
 
 # Each item in the list will be shown as an app in the apps page

@@ -66,6 +66,18 @@ CORE_TAX_ACCOUNTS = [
 		"balance_must_be": "Credit",
 	},
 	{
+		# What WHT Receivable is used up against: a customer's WHT certificate is
+		# an advance on this company's own income tax. No balance_must_be -- once
+		# instalments and WHT credits exceed the year's liability the balance is
+		# legitimately a debit (tax paid in advance), and a Credit-only rule would
+		# block exactly the entries this account exists for.
+		"fieldname": "income_tax_payable_account",
+		"account_name": "Income Tax Payable",
+		"root_type": "Liability",
+		"group_candidates": ["Duties and Taxes", "Tax Liabilities"],
+		"balance_must_be": None,
+	},
+	{
 		"fieldname": "vat_withholding_payable_account",
 		"account_name": "VAT Withholding Payable to KRA",
 		"root_type": "Liability",
@@ -85,7 +97,7 @@ FALLBACK_GROUP_NAME = "VAT & WHT"
 
 
 def create_core_tax_accounts(company):
-	"""Create (or find) the 6 core Kenya VAT/WHT accounts for `company`.
+	"""Create (or find) the core Kenya VAT/WHT/income tax accounts for `company`.
 
 	Returns {fieldname: account_name}, keyed to match Kenya Accounting Settings
 	fields exactly, so callers can merge the result straight onto the settings doc.
