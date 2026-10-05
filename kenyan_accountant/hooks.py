@@ -34,6 +34,9 @@ after_install = "kenyan_accountant.install.after_install"
 # client can't be left with a stale or duplicated copy.
 doctype_js = {"Payment Entry": "public/js/payment_entry.js"}
 
+# Till: hide "Add Discount" where the POS Profile does not allow discounts (pos_controls.py).
+page_js = {"point-of-sale": "public/js/pos_discount_guard.js"}
+
 # "Finish setting up your documents" checklist (setup_checklist.py).
 app_include_js = "/assets/kenyan_accountant/js/kenya_setup.js"
 extend_bootinfo = "kenyan_accountant.setup_checklist.extend_bootinfo"
@@ -52,7 +55,8 @@ jinja = {
 # withheld BY this company (Purchase Invoice, ERPNext's own engine) and
 # everything else (Payment Entry deductions) are separate mechanisms feeding
 # one tracking doctype (Withholding Tax Credit) rather than one combined
-# engine -- and why there is deliberately no Sales Invoice hook here.
+# engine -- and why there is deliberately no Sales Invoice *withholding* hook here
+# (the Sales Invoice hook below is the till discount rule, unrelated to withholding).
 doc_events = {
 	"Payment Entry": {
 		"on_submit": "kenyan_accountant.setup.withholding.sync_payment_withholding_credits",
@@ -68,6 +72,9 @@ doc_events = {
 		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_claims",
 		"on_trash": "kenyan_accountant.setup.withholding.sync_wht_claims",
 	},
+	# A till's discount/price settings, enforced on the server (pos_controls.py).
+	"Sales Invoice": {"validate": "kenyan_accountant.pos_controls.enforce_pos_discount_rules"},
+	"POS Invoice": {"validate": "kenyan_accountant.pos_controls.enforce_pos_discount_rules"},
 }
 
 # Each item in the list will be shown as an app in the apps page
