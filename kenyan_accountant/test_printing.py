@@ -14,6 +14,7 @@ from frappe.utils.fixtures import sync_fixtures
 from kenyan_accountant.patches.v16_2.remove_shipped_client_scripts import remove_if_unchanged
 from kenyan_accountant.printing import (
 	DEFAULT_PRINT_FORMATS,
+	address_block,
 	document_badge,
 	document_title,
 	kenya_pct,
@@ -149,6 +150,35 @@ class TestDocumentTitle(IntegrationTestCase):
 		self.assertEqual(kenya_qty(2.5), "2.5")
 		self.assertEqual(kenya_pct(16.0), "16%")
 		self.assertEqual(kenya_pct(16.05), "16.05%")
+
+
+class TestAddressBlock(IntegrationTestCase):
+	"""Inputs are what Frappe's default address template saves on a document."""
+
+	def test_po_box_joins_its_postal_code_and_town(self):
+		block = address_block(
+			"Kimathi House, Moi Avenue<br>\nP.O. Box 3456<br>Mombasa<br>\n80100<br>Kenya<br>\n<br>\n"
+			"Phone: +254 733 555 222<br>Email: info@example.co.ke<br>"
+		)
+		self.assertEqual(block.lines, ["Kimathi House, Moi Avenue", "P.O. Box 3456-80100, Mombasa"])
+		self.assertEqual(block.phone, "+254 733 555 222")
+		self.assertEqual(block.email, "info@example.co.ke")
+
+	def test_po_box_inside_a_street_line(self):
+		block = address_block("Viking House<br>Waiyaki Way, Westlands. P.O. Box 45210<br>Nairobi<br>00100<br>Kenya<br>")
+		self.assertEqual(block.lines, ["Viking House", "Waiyaki Way, Westlands", "P.O. Box 45210-00100, Nairobi"])
+
+	def test_no_po_box_puts_the_postal_code_after_the_town(self):
+		block = address_block("Thika Road Business Park<br>Thika<br>01000<br>Kenya<br>")
+		self.assertEqual(block.lines, ["Thika Road Business Park", "Thika 01000"])
+
+	def test_a_foreign_country_stays(self):
+		block = address_block("Plot 14, Kampala Road<br>Kampala<br>Uganda<br>")
+		self.assertEqual(block.lines, ["Plot 14, Kampala Road", "Kampala", "Uganda"])
+
+	def test_empty(self):
+		self.assertEqual(address_block("").lines, [])
+		self.assertEqual(address_block(None).lines, [])
 
 
 class TestRemoveShippedClientScripts(IntegrationTestCase):

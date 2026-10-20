@@ -13,7 +13,8 @@
         ("Quotation No.", doc.name),
         ("Date", frappe.utils.formatdate(doc.transaction_date)),
         ("Valid Until", frappe.utils.formatdate(doc.valid_till) if doc.valid_till else ""),
-      ]
+      ],
+      ship_to=ctx.ship_to, ship_caption="Ship To"
   ) }}
 
   {{ items_table(doc, ctx) }}

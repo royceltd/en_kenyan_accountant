@@ -88,13 +88,19 @@ def kenya_print_context(doc) -> frappe._dict:
 	"""One call at the top of each template (registered as a Jinja method in hooks)."""
 	company = doc.get("company")
 	settings = _print_settings(company)
+	# A local address prints without its country; a foreign one keeps it.
+	home_country = (frappe.db.get_value("Company", company, "country") if company else None) or "Kenya"
+	bill_to = address_block(party_address(doc), home_country)
+	bill_to.phone = bill_to.phone or doc.get("contact_mobile") or doc.get("contact_phone") or ""
+	bill_to.email = bill_to.email or doc.get("contact_email") or ""
 	return frappe._dict(
 		title=document_title(doc),
 		badge=document_badge(doc),
 		accent=settings.get("print_accent_color") or NEUTRAL_ACCENT,
 		payment_details=settings.get("payment_details") or "",
-		company=_company_identity(doc, company),
-		party_address=compact_address(party_address(doc)),
+		company=_company_identity(doc, company, home_country),
+		party_address=bill_to,
+		ship_to=_ship_to(doc, bill_to, home_country),
 		summary=invoice_summary(doc),
 		use_letter_head=uses_own_letter_head(doc),
 		line_vat=line_vat(doc),
@@ -220,15 +226,94 @@ def invoice_summary(doc) -> frappe._dict | None:
 	)
 
 
-def compact_address(address_html) -> str:
-	"""Frappe's address display is one line per field ("Vision Plaza<br>P.O. Box
-	...<br>Nairobi<br>Kenya<br>"). On a document header that's five lines of height
-	for one fact; print it as one line that wraps naturally."""
+# "P.O. Box 45210", "P. O. Box 45210-00100", "Box 3456": wherever the user typed it.
+PO_BOX = re.compile(r"\b(?:P\.?\s*O\.?\s*)?Box\s*(?:No\.?\s*)?(\d+)(?:\s*[-–]\s*(\d{5}))?", re.IGNORECASE)
+POSTAL_CODE = re.compile(r"^\d{5}$")
+CONTACT_LABELS = {"phone": "phone", "tel": "phone", "mobile": "phone", "email": "email", "e-mail": "email", "fax": None}
+
+
+def address_block(address_html, home_country="Kenya") -> frappe._dict:
+	"""Frappe's address display (the snapshot saved on the document, so a printed
+	invoice keeps the address it was issued to) as the lines a Kenyan reader expects:
+
+	    Viking House, 3rd Floor
+	    Waiyaki Way, Westlands
+	    P.O. Box 45210-00100, Nairobi
+
+	The address template's "Phone: ..."/"Email: ..." lines come back separately, the
+	home country is dropped, and a postal code joins its P.O. Box (or its town)."""
+	block = frappe._dict(lines=[], phone="", email="")
 	if not address_html:
-		return ""
-	lines = re.split(r"<br\s*/?>|\n", address_html)
-	parts = [re.sub(r"<[^>]+>", "", line).strip().strip(",") for line in lines]
-	return ", ".join(part for part in parts if part)
+		return block
+	labels = dict(CONTACT_LABELS)
+	labels.update({frappe._(label.title()).lower(): kind for label, kind in CONTACT_LABELS.items()})
+
+	lines, country = [], ""
+	box = postal = None
+	box_at = locality = None
+	for raw in re.split(r"<br\s*/?>|\n", address_html):
+		line = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", raw)).strip(" ,;")
+		if not line:
+			continue
+		label, sep, value = line.partition(":")
+		if sep and label.strip().lower() in labels:
+			kind = labels[label.strip().lower()]
+			if kind and value.strip() and not block[kind]:
+				block[kind] = value.strip()
+			continue
+		if home_country and line.lower() == home_country.lower():
+			continue
+		if POSTAL_CODE.match(line):
+			postal = postal or line
+			locality = len(lines) - 1 if lines else None
+			continue
+		match = PO_BOX.search(line) if box is None else None
+		if match:
+			box, postal = match.group(1), postal or match.group(2)
+			rest = re.sub(r"\s+", " ", line[: match.start()] + " " + line[match.end() :])
+			rest = re.sub(r"\s*[,;.]+\s*$|^\s*[,;.]+\s*", "", rest).strip()
+			if rest:
+				lines.append(rest)
+			box_at = len(lines)
+			continue
+		if not country and frappe.db.exists("Country", line):
+			country = line
+			continue
+		lines.append(line)
+
+	# The town the postal code belongs to: the line just before a separate postal
+	# code line (the template's order), else the last line after the box.
+	if locality is None and box is not None and lines and len(lines) - 1 >= box_at:
+		locality = len(lines) - 1
+	if box is not None:
+		text = f"P.O. Box {box}" + (f"-{postal}" if postal else "")
+		if locality is not None:
+			text += ", " + lines.pop(locality)
+		lines.append(text)
+	elif postal:
+		if locality is not None:
+			lines[locality] = f"{lines[locality]} {postal}"
+		else:
+			lines.append(postal)
+	if country:
+		lines.append(country)
+	block.lines = lines
+	return block
+
+
+def compact_address(address_html) -> str:
+	"""The address on one line, for the few places that need it that way."""
+	return ", ".join(address_block(address_html).lines)
+
+
+def _ship_to(doc, bill_to, home_country) -> frappe._dict | None:
+	"""The delivery address, only when it isn't the billing address."""
+	# On purchase documents shipping_address is the Link; the text is shipping_address_display.
+	field = "shipping_address_display" if doc.doctype in ("Purchase Order", "Purchase Invoice") else "shipping_address"
+	block = address_block(doc.get(field), home_country)
+	if not block.lines or block.lines == bill_to.lines:
+		return None
+	return block
 
 
 def kenya_tax_label(tax) -> str:
@@ -265,19 +350,22 @@ def _print_settings(company) -> dict:
 	return frappe.db.get_value("Kenya Accounting Settings", company, fields, as_dict=True) or {}
 
 
-def _company_identity(doc, company) -> frappe._dict:
+def _company_identity(doc, company, home_country="Kenya") -> frappe._dict:
 	if not company:
-		return frappe._dict(name="", logo="", address="", tax_id="", contacts=[])
+		return frappe._dict(name="", logo="", address=address_block(""), tax_id="", phone="", email="", website="")
 	values = frappe.db.get_value(
 		"Company", company, ["company_name", "company_logo", "tax_id", "phone_no", "email", "website"], as_dict=True
 	) or frappe._dict()
+	address = address_block(_company_address(doc, company), home_country)
 	return frappe._dict(
 		name=values.company_name or company,
 		logo=_inline_image(values.company_logo),
-		address=compact_address(_company_address(doc, company)),
+		address=address,
 		tax_id=values.tax_id or "",
-		# Rendered as separate no-wrap pieces, so a wrap never leaves a dangling "·".
-		contacts=[bit for bit in (values.phone_no, values.email, values.website) if bit],
+		# The Company's own contact details first; the address's when it has none.
+		phone=values.phone_no or address.phone,
+		email=values.email or address.email,
+		website=values.website or "",
 	)
 
 

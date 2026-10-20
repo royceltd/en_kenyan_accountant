@@ -26,7 +26,8 @@
         ("Against Invoice", doc.return_against if doc.is_return else ""),
         ("Customer PO", doc.po_no),
         ("KRA CU Invoice No.", ctx.etims.invoice_number),
-      ]
+      ],
+      ship_to=ctx.ship_to, ship_caption="Ship To"
   ) }}
 
   {{ items_table(doc, ctx) }}

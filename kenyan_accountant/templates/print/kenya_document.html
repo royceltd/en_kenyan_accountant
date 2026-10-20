@@ -59,8 +59,16 @@
   .kx-doc .kx-sign td.kx-sign-line { border-top: 1px solid #9ca3af; padding-top: 4px !important; }
   .kx-doc .kx-footer { margin-top: 22px; border-top: 1px solid #e5e7eb; padding: 7px 6px 0 0; font-size: 7.5pt; color: #6b7280; word-wrap: break-word; }
   .kx-doc .kx-qr { width: 92px; height: 92px; }
-  .kx-doc .kx-pin { font-size: 8pt; font-weight: 600; color: #374151; margin-top: 2px; }
-  .kx-doc .kx-contact { white-space: nowrap; color: #6b7280; }
+  .kx-doc .kx-pin { font-size: 8pt; font-weight: 600; color: #374151; margin-top: 3px; }
+
+  /* Addresses: one line per part, readable grey, not the faint caption grey. */
+  .kx-doc .kx-address { font-size: 8.5pt; line-height: 1.45; color: #4b5563; margin-top: 2px; }
+  .kx-doc table.kx-contacts { width: auto; margin-top: 4px; font-size: 8pt; color: #4b5563; }
+  .kx-doc .kx-contacts td { padding: 0.5px 0 !important; line-height: 1.45; }
+  .kx-doc .kx-contacts td.kx-contact-label { color: #9ca3af; font-size: 6.5pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; padding-right: 8px !important; vertical-align: baseline; }
+  .kx-doc .kx-contacts td.kx-contact-value { vertical-align: baseline; white-space: nowrap; }
+  .kx-doc .kx-contacts td.kx-pin { color: #111827; font-weight: 700; margin: 0; }
+  .kx-doc .kx-parties { margin-bottom: 2px; }
 
   /* Summary band (invoices) and amount panel (receipts): the number the reader came for. */
   .kx-doc .kx-band { background: #f3f4f6; border-left: 4px solid {{ ctx.accent }}; margin: 0 0 14px 0; }
@@ -87,9 +95,8 @@
   <td style="width: 58%;">
     {% if ctx.company.logo %}<img class="kx-logo" src="{{ ctx.company.logo }}" alt="">{% endif %}
     <div class="kx-company">{{ ctx.company.name }}</div>
-    {% if ctx.company.address %}<div class="kx-muted kx-small">{{ ctx.company.address }}</div>{% endif %}
-    {% if ctx.company.contacts %}<div class="kx-muted kx-small">{% for bit in ctx.company.contacts %}<span class="kx-contact">{{ bit }}</span>{% if not loop.last %} &middot; {% endif %}{% endfor %}</div>{% endif %}
-    {% if ctx.company.tax_id %}<div class="kx-pin">{{ _("KRA PIN") }}: {{ ctx.company.tax_id }}</div>{% endif %}
+    {{ address_lines(ctx.company.address) }}
+    {{ contacts([("Tel", ctx.company.phone), ("Email", ctx.company.email), ("Web", ctx.company.website), ("KRA PIN", ctx.company.tax_id, True)]) }}
   </td>
   <td class="kx-right" style="width: 42%;">
     <div class="kx-title">{{ _(ctx.title) }}</div>
@@ -100,17 +107,40 @@
 <div class="kx-rule"></div>
 {%- endmacro -%}
 
-{#- The other party (left) and the document's reference numbers (right).
-    rows: list of (label, value); empty values are skipped. -#}
-{%- macro parties(caption, name, address, tax_id, rows) -%}
-<table><tr>
-  <td class="kx-gap" style="width: 55%;">
+{#- An address_block (printing.address_block): one line per part, never a run-on. -#}
+{%- macro address_lines(block) -%}
+{% if block and block.lines %}<div class="kx-address">{% for line in block.lines %}<div>{{ line }}</div>{% endfor %}</div>{% endif %}
+{%- endmacro -%}
+
+{#- Tel / Email / Web / KRA PIN as an aligned label-value list: no run-on line to
+    wrap badly. rows: list of (label, value), empty values skipped; a third item
+    True marks the value to stand out (the KRA PIN). -#}
+{%- macro contacts(rows) -%}
+{% set shown = rows | selectattr("1") | list %}
+{% if shown %}<table class="kx-contacts">{% for row in shown %}
+<tr><td class="kx-contact-label">{{ _(row[0]) }}</td><td class="kx-contact-value{{ ' kx-pin' if row | length > 2 and row[2] }}">{{ row[1] }}</td></tr>
+{% endfor %}</table>{% endif %}
+{%- endmacro -%}
+
+{#- The other party (and where the goods go, when that's somewhere else) on the left,
+    the document's reference numbers on the right.
+    address: an address_block; rows: list of (label, value), empty values skipped. -#}
+{%- macro parties(caption, name, address, tax_id, rows, ship_to=None, ship_caption="Ship To") -%}
+<table class="kx-parties"><tr>
+  <td class="kx-gap" style="width: {{ '36%' if ship_to else '55%' }};">
     <div class="kx-caption">{{ _(caption) }}</div>
     <div class="kx-party-name">{{ name or "" }}</div>
-    {% if address %}<div class="kx-muted kx-small">{{ address }}</div>{% endif %}
-    {% if tax_id %}<div class="kx-pin">{{ _("KRA PIN") }}: {{ tax_id }}</div>{% endif %}
+    {{ address_lines(address) }}
+    {{ contacts([("Tel", address.phone if address else ""), ("Email", address.email if address else ""), ("KRA PIN", tax_id, True)]) }}
   </td>
-  <td style="width: 45%;">
+  {% if ship_to %}
+  <td class="kx-gap" style="width: 30%;">
+    <div class="kx-caption">{{ _(ship_caption) }}</div>
+    {{ address_lines(ship_to) }}
+    {{ contacts([("Tel", ship_to.phone), ("Email", ship_to.email)]) }}
+  </td>
+  {% endif %}
+  <td style="width: {{ '34%' if ship_to else '45%' }};">
     <table class="kx-meta">
       {% for label, value in rows if value %}
       <tr><td class="kx-meta-label">{{ _(label) }}</td><td class="kx-meta-value">{{ value }}</td></tr>
