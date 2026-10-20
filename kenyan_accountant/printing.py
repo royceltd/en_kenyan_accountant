@@ -101,7 +101,7 @@ def kenya_print_context(doc) -> frappe._dict:
 		company=_company_identity(doc, company, home_country),
 		party_address=bill_to,
 		ship_to=_ship_to(doc, bill_to, home_country),
-		summary=invoice_summary(doc),
+		amount=amount_box(doc),
 		use_letter_head=uses_own_letter_head(doc),
 		line_vat=line_vat(doc),
 		# VAT-inclusive prices: lines print their VAT-exclusive (net) figures, so
@@ -211,19 +211,40 @@ def uses_own_letter_head(doc) -> bool:
 	return (frappe.db.get_value("Letter Head", name, "content") or "").strip() != (shipped or "").strip()
 
 
-def invoice_summary(doc) -> frappe._dict | None:
-	"""The three things a payer looks for first, for the band under the header of a
-	sales invoice. None for anything else (returns included)."""
-	if doc.doctype != "Sales Invoice" or doc.get("is_return"):
-		return None
+def amount_box(doc) -> frappe._dict:
+	"""The one figure the reader came for, shown framed beside the Bill To block:
+	what's still owed on an invoice, the total on a quotation/order, the money on a
+	receipt. label and note are untranslated; the template translates them."""
+	fmt = frappe.utils.formatdate
 	grand = flt(doc.get("rounded_total") or doc.get("grand_total"))
-	due = flt(doc.get("outstanding_amount")) if cint(doc.get("docstatus")) == 1 else grand
-	return frappe._dict(
-		number=doc.name,
-		due_date=frappe.utils.formatdate(doc.due_date) if doc.get("due_date") else "",
-		amount_due=due,
-		currency=doc.get("currency"),
-	)
+	submitted = cint(doc.get("docstatus")) == 1
+	box = frappe._dict(label="Total", amount=grand, currency=doc.get("currency"), note="", note_args=[])
+
+	if doc.doctype == "Payment Entry":
+		receiving = doc.get("payment_type") == "Receive"
+		box.amount = flt(doc.get("received_amount") if receiving else doc.get("paid_amount"))
+		box.currency = doc.get("paid_to_account_currency" if receiving else "paid_from_account_currency")
+		box.label = {"Receive": "Amount Received", "Internal Transfer": "Amount Transferred"}.get(doc.get("payment_type"), "Amount Paid")
+		box.note = frappe.utils.money_in_words(box.amount, box.currency)
+	elif doc.doctype in ("Sales Invoice", "Purchase Invoice") and doc.get("is_return"):
+		box.label = "Credit Note Total" if doc.doctype == "Sales Invoice" else "Debit Note Total"
+		box.amount = abs(grand)
+	elif doc.doctype in ("Sales Invoice", "Purchase Invoice"):
+		box.label = "Amount Due"
+		box.amount = flt(doc.get("outstanding_amount")) if submitted else grand
+		if submitted and box.amount <= 0 and grand > 0:
+			box.note = "Paid in full"
+		elif doc.get("due_date"):
+			box.note, box.note_args = "Due by {0}", [fmt(doc.due_date)]
+	elif doc.doctype == "Quotation":
+		box.label = "Quotation Total"
+		if doc.get("valid_till"):
+			box.note, box.note_args = "Valid until {0}", [fmt(doc.valid_till)]
+	elif doc.doctype == "Purchase Order":
+		box.label = "Order Total"
+		if doc.get("schedule_date"):
+			box.note, box.note_args = "Required by {0}", [fmt(doc.schedule_date)]
+	return box
 
 
 # "P.O. Box 45210", "P. O. Box 45210-00100", "Box 3456": wherever the user typed it.

@@ -15,6 +15,7 @@ from kenyan_accountant.patches.v16_2.remove_shipped_client_scripts import remove
 from kenyan_accountant.printing import (
 	DEFAULT_PRINT_FORMATS,
 	address_block,
+	amount_box,
 	document_badge,
 	document_title,
 	kenya_pct,
@@ -179,6 +180,32 @@ class TestAddressBlock(IntegrationTestCase):
 	def test_empty(self):
 		self.assertEqual(address_block("").lines, [])
 		self.assertEqual(address_block(None).lines, [])
+
+
+class TestAmountBox(IntegrationTestCase):
+	def _doc(self, doctype, **values):
+		return frappe._dict(doctype=doctype, currency="KES", **values)
+
+	def test_invoice_shows_what_is_still_owed(self):
+		box = amount_box(self._doc("Sales Invoice", docstatus=1, grand_total=1160, outstanding_amount=400, due_date="2026-11-19"))
+		self.assertEqual((box.label, box.amount, box.note), ("Amount Due", 400, "Due by {0}"))
+
+	def test_draft_invoice_owes_the_total(self):
+		box = amount_box(self._doc("Sales Invoice", docstatus=0, grand_total=1160, outstanding_amount=0))
+		self.assertEqual(box.amount, 1160)
+		self.assertEqual(box.note, "")
+
+	def test_paid_invoice(self):
+		box = amount_box(self._doc("Sales Invoice", docstatus=1, grand_total=1160, outstanding_amount=0))
+		self.assertEqual((box.amount, box.note), (0, "Paid in full"))
+
+	def test_credit_note_shows_its_total(self):
+		box = amount_box(self._doc("Sales Invoice", docstatus=1, is_return=1, grand_total=-580))
+		self.assertEqual((box.label, box.amount), ("Credit Note Total", 580))
+
+	def test_quotation_and_order(self):
+		self.assertEqual(amount_box(self._doc("Quotation", grand_total=90, valid_till="2026-11-03")).label, "Quotation Total")
+		self.assertEqual(amount_box(self._doc("Purchase Order", grand_total=90)).label, "Order Total")
 
 
 class TestRemoveShippedClientScripts(IntegrationTestCase):

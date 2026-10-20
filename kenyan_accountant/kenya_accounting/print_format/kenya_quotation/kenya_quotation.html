@@ -2,19 +2,18 @@
 {%- set ctx = kenya_print_context(doc) -%}
 {{ styles(ctx) }}
 <div class="kx-doc">
-  {{ header(ctx, letter_head, no_letterhead) }}
+  {{ header(ctx, letter_head, no_letterhead, [
+      ("Quotation No.", doc.name),
+      ("Date", frappe.utils.formatdate(doc.transaction_date)),
+      ("Valid Until", frappe.utils.formatdate(doc.valid_till) if doc.valid_till else ""),
+  ]) }}
 
   {{ parties(
       "Prepared For",
       doc.customer_name or doc.party_name,
       ctx.party_address,
       frappe.db.get_value("Customer", doc.party_name, "tax_id") if doc.quotation_to == "Customer" else "",
-      [
-        ("Quotation No.", doc.name),
-        ("Date", frappe.utils.formatdate(doc.transaction_date)),
-        ("Valid Until", frappe.utils.formatdate(doc.valid_till) if doc.valid_till else ""),
-      ],
-      ship_to=ctx.ship_to, ship_caption="Ship To"
+      amount=ctx.amount, ship_to=ctx.ship_to, ship_caption="Ship To"
   ) }}
 
   {{ items_table(doc, ctx) }}
