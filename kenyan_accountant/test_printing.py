@@ -173,6 +173,15 @@ class TestAddressBlock(IntegrationTestCase):
 		block = address_block("Thika Road Business Park<br>Thika<br>01000<br>Kenya<br>")
 		self.assertEqual(block.lines, ["Thika Road Business Park", "Thika 01000"])
 
+	def test_po_box_with_its_own_town_prints_as_typed(self):
+		# Premises in Nairobi, post office box in Bomet: the box keeps its own town.
+		block = address_block("Vision Plaza, Mombasa Road<br>\nP.O. Box 262-20400, Bomet<br>Nairobi<br>\nKenya<br>")
+		self.assertEqual(block.lines, ["Vision Plaza, Mombasa Road", "Nairobi", "P.O. Box 262-20400, Bomet"])
+
+	def test_digits_as_the_first_line_are_not_a_postal_code(self):
+		block = address_block("21212<br>\nNyeri<br>\nKenya<br>\n<br>\n")
+		self.assertEqual(block.lines, ["21212", "Nyeri"])
+
 	def test_a_foreign_country_stays(self):
 		block = address_block("Plot 14, Kampala Road<br>Kampala<br>Uganda<br>")
 		self.assertEqual(block.lines, ["Plot 14, Kampala Road", "Kampala", "Uganda"])

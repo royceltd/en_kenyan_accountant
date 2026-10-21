@@ -270,8 +270,8 @@ def address_block(address_html, home_country="Kenya") -> frappe._dict:
 	labels.update({frappe._(label.title()).lower(): kind for label, kind in CONTACT_LABELS.items()})
 
 	lines, country = [], ""
-	box = postal = None
-	box_at = locality = None
+	box = box_postal = box_town = box_at = None
+	postal = locality = None
 	for raw in re.split(r"<br\s*/?>|\n", address_html):
 		line = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", raw)).strip(" ,;")
 		if not line:
@@ -284,42 +284,52 @@ def address_block(address_html, home_country="Kenya") -> frappe._dict:
 			continue
 		if home_country and line.lower() == home_country.lower():
 			continue
-		if POSTAL_CODE.match(line):
+		# A postal code follows its town in the template. A first line of digits is
+		# whatever the user typed as Address Line 1 (a box or plot number), kept as is.
+		if lines and POSTAL_CODE.match(line):
 			postal = postal or line
-			locality = len(lines) - 1 if lines else None
+			locality = len(lines) - 1
 			continue
 		match = PO_BOX.search(line) if box is None else None
 		if match:
-			box, postal = match.group(1), postal or match.group(2)
-			rest = re.sub(r"\s+", " ", line[: match.start()] + " " + line[match.end() :])
-			rest = re.sub(r"\s*[,;.]+\s*$|^\s*[,;.]+\s*", "", rest).strip()
-			if rest:
-				lines.append(rest)
-			box_at = len(lines)
+			box, box_postal = match.group(1), match.group(2)
+			before, after = _trim(line[: match.start()]), _trim(line[match.end() :])
+			if before:
+				lines.append(before)
+			box_town, box_at = after, len(lines)
 			continue
 		if not country and frappe.db.exists("Country", line):
 			country = line
 			continue
 		lines.append(line)
 
-	# The town the postal code belongs to: the line just before a separate postal
-	# code line (the template's order), else the last line after the box.
-	if locality is None and box is not None and lines and len(lines) - 1 >= box_at:
-		locality = len(lines) - 1
-	if box is not None:
-		text = f"P.O. Box {box}" + (f"-{postal}" if postal else "")
+	if postal and locality is not None and not (box is not None and not box_town):
+		lines[locality] = f"{lines[locality]} {postal}"
+		postal = None
+	if box is not None and box_town:
+		# Written with its own town ("P.O. Box 262-20400, Bomet"): print it as typed. The
+		# post office can be in a different town from the premises (City/Town).
+		lines.append(f"P.O. Box {box}" + (f"-{box_postal}" if box_postal else "") + f", {box_town}")
+	elif box is not None:
+		# A bare box takes its postal code and town from the template's own lines: the
+		# line before a separate postal code, else the last line after the box.
+		code = box_postal or postal
+		if locality is None and lines and len(lines) - 1 >= box_at:
+			locality = len(lines) - 1
+		text = f"P.O. Box {box}" + (f"-{code}" if code else "")
 		if locality is not None:
 			text += ", " + lines.pop(locality)
 		lines.append(text)
 	elif postal:
-		if locality is not None:
-			lines[locality] = f"{lines[locality]} {postal}"
-		else:
-			lines.append(postal)
+		lines.append(postal)
 	if country:
 		lines.append(country)
 	block.lines = lines
 	return block
+
+
+def _trim(text) -> str:
+	return re.sub(r"^[\s,;.\-–]+|[\s,;.\-–]+$", "", re.sub(r"\s+", " ", text))
 
 
 def compact_address(address_html) -> str:
