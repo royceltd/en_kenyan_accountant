@@ -238,18 +238,24 @@ def _backfill_stock_settings() -> dict:
 	the scheduler is on."""
 	changes = {}
 	stock_settings = frappe.get_single("Stock Settings")
-	if not stock_settings.default_warehouse:
-		default_company = frappe.db.get_single_value("Global Defaults", "default_company")
-		warehouse = frappe.db.get_value(
-			"Warehouse", {"warehouse_name": "Stores", "company": default_company, "is_group": 0}
-		)
-		if warehouse:
-			stock_settings.default_warehouse = warehouse
-			changes["Stock Settings.default_warehouse"] = warehouse
+	default_company = frappe.db.get_single_value("Global Defaults", "default_company")
+	stores = frappe.db.get_value(
+		"Warehouse", {"warehouse_name": "Stores", "company": default_company, "is_group": 0}
+	)
+	# ERPNext 16.5x moved the default warehouse from Stock Settings to the Company
+	# (patches/v16_0/move_warehouse_defaults_to_company.py), and Company creation now
+	# fills it with "Stores" itself; older 16.x still keeps it on Stock Settings.
+	if stock_settings.meta.has_field("default_warehouse"):
+		if stores and not stock_settings.default_warehouse:
+			stock_settings.default_warehouse = stores
+			changes["Stock Settings.default_warehouse"] = stores
+	elif stores and not frappe.db.get_value("Company", default_company, "default_warehouse"):
+		frappe.db.set_value("Company", default_company, "default_warehouse", stores)
+		changes["Company.default_warehouse"] = stores
 	if not stock_settings.stock_uom and frappe.db.exists("UOM", "Nos"):
 		stock_settings.stock_uom = "Nos"
 		changes["Stock Settings.stock_uom"] = "Nos"
-	if changes:
+	if any(key.startswith("Stock Settings.") for key in changes):
 		stock_settings.flags.ignore_permissions = True
 		stock_settings.save()
 	return changes

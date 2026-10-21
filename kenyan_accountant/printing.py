@@ -28,13 +28,14 @@ DEFAULT_PRINT_FORMATS = {
 }
 
 # What ERPNext's own installer sets as the default before our app is installed
-# (erpnext/setup/install.py set_default_print_formats, v16). Not a client's choice,
-# so ours replaces it; anything else is the client's and is left alone.
+# (erpnext/setup/install.py set_default_print_formats, v16): "... with Item Image"
+# until 16.36, "... Classic" from 16.5x. Not a client's choice, so ours replaces it;
+# anything else is the client's and is left alone.
 FRAMEWORK_DEFAULT_PRINT_FORMATS = {
-	"Sales Invoice": "Sales Invoice with Item Image",
-	"Purchase Order": "Purchase Order with Item Image",
-	"Purchase Invoice": "Purchase Invoice with Item Image",
-	"Quotation": "Quotation with Item Image",
+	"Sales Invoice": ("Sales Invoice with Item Image", "Sales Invoice Classic"),
+	"Purchase Order": ("Purchase Order with Item Image", "Purchase Order Classic"),
+	"Purchase Invoice": ("Purchase Invoice with Item Image", "Purchase Invoice Classic"),
+	"Quotation": ("Quotation with Item Image", "Quotation Classic"),
 }
 
 # ERPNext's installer also creates these letterheads and makes the grey one the
@@ -68,7 +69,7 @@ def set_default_print_formats(formats: dict | None = None) -> list:
 			{"doc_type": doctype, "doctype_or_field": "DocType", "property": "default_print_format"},
 			"value",
 		)
-		if current and current != FRAMEWORK_DEFAULT_PRINT_FORMATS.get(doctype):
+		if current and current not in FRAMEWORK_DEFAULT_PRINT_FORMATS.get(doctype, ()):
 			continue
 		frappe.make_property_setter(
 			{

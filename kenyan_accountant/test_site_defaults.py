@@ -113,7 +113,12 @@ class TestApplyWizardDefaults(IntegrationTestCase):
 		company = _fresh_company()
 		stock = frappe.get_single("Stock Settings")
 		self.assertEqual(stock.stock_uom, "Nos")
-		self.assertEqual(frappe.db.get_value("Warehouse", stock.default_warehouse, "warehouse_name"), "Stores")
+		# ERPNext 16.5x keeps the default warehouse on the Company, older 16.x on Stock Settings.
+		if stock.meta.has_field("default_warehouse"):
+			default_warehouse = stock.default_warehouse
+		else:
+			default_warehouse = frappe.db.get_value("Company", company, "default_warehouse")
+		self.assertEqual(frappe.db.get_value("Warehouse", default_warehouse, "warehouse_name"), "Stores")
 		self.assertEqual(stock.email_footer_address, company)
 
 	def test_moves_kolkata_users_to_nairobi(self):

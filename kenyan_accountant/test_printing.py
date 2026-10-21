@@ -46,20 +46,22 @@ class TestDefaultPrintFormats(IntegrationTestCase):
 		self.assertEqual(_default_for("Sales Invoice"), "Kenya Tax Invoice")
 
 	def test_replaces_erpnexts_own_install_default(self):
-		"""ERPNext's installer sets "... with Item Image" before our app installs, on
-		every fresh site. That's not a client's choice."""
-		frappe.db.delete("Property Setter", PS_FILTERS)
-		frappe.make_property_setter(
-			{
-				"doctype": "Sales Invoice",
-				"doctype_or_field": "DocType",
-				"property": "default_print_format",
-				"value": "Sales Invoice with Item Image",
-				"property_type": "Link",
-			}
-		)
-		self.assertIn("Sales Invoice", set_default_print_formats())
-		self.assertEqual(_default_for("Sales Invoice"), "Kenya Tax Invoice")
+		"""ERPNext's installer sets "... with Item Image" (16.36) or "... Classic" (16.5x)
+		before our app installs, on every fresh site. That's not a client's choice."""
+		for erpnext_default in ("Sales Invoice with Item Image", "Sales Invoice Classic"):
+			with self.subTest(erpnext_default):
+				frappe.db.delete("Property Setter", PS_FILTERS)
+				frappe.make_property_setter(
+					{
+						"doctype": "Sales Invoice",
+						"doctype_or_field": "DocType",
+						"property": "default_print_format",
+						"value": erpnext_default,
+						"property_type": "Link",
+					}
+				)
+				self.assertIn("Sales Invoice", set_default_print_formats())
+				self.assertEqual(_default_for("Sales Invoice"), "Kenya Tax Invoice")
 
 	def test_never_replaces_a_clients_own_default(self):
 		frappe.db.delete("Property Setter", PS_FILTERS)
