@@ -91,6 +91,18 @@ CORE_TAX_ACCOUNTS = [
 		"group_candidates": ["Tax Assets", "Duties and Taxes"],
 		"balance_must_be": "Debit",
 	},
+	{
+		# VAT paid that the law doesn't let the business claim back - e.g. on
+		# passenger cars and their repairs and spares (VAT Act 2013 s.17(5)).
+		# An expense, not an asset: it never reaches the VAT return. Purchase
+		# templates carry it as a 0% row that Non-Claimable Item Tax Templates
+		# switch on, so the VAT on such a line lands here instead of Input VAT.
+		"fieldname": "non_recoverable_vat_account",
+		"account_name": "Non-Recoverable VAT",
+		"root_type": "Expense",
+		"group_candidates": ["Indirect Expenses"],
+		"balance_must_be": "",
+	},
 ]
 
 FALLBACK_GROUP_NAME = "VAT & WHT"

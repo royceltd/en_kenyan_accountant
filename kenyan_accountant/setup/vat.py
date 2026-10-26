@@ -20,13 +20,79 @@ TAX_CATEGORIES = [
 ]
 
 STANDARD_VAT_RATE = 16
+# Reduced rate (eTIMS band E). In law petroleum products are 16%; at the time of
+# writing a presidential directive has them at 8% temporarily. Only the default
+# for templates created from now on - the client owns them once created
+# (ADR-023), so a rate change is an edit to the template, not a release.
+REDUCED_VAT_RATE = 8
 
 # Item-level VAT treatments. Set on an Item (Taxes table), an Item Tax Template
-# replaces the invoice template's VAT rate for that line only, so a zero-rated or
-# exempt item carries 0% on an otherwise Standard 16% invoice. Two templates, not
-# one "0%": the VAT return reports zero-rated and exempt supplies separately, and
-# only zero-rated supplies keep the right to recover input VAT.
-ITEM_TAX_TEMPLATES = ["KE Zero Rated", "KE Exempt"]
+# replaces the invoice template's rate for that line's VAT accounts only, so one
+# invoice can mix 16%, 8%, zero-rated and exempt lines. Zero-rated and exempt
+# are separate templates, not one "0%": the VAT return reports them separately,
+# and only zero-rated supplies keep the right to recover input VAT.
+#
+# Rates per account role: output (sales), input (claimable purchase VAT) and
+# non_recoverable (purchase VAT the business can't claim). A role left out keeps
+# the invoice template's own rate - and the non-recoverable row's is always 0%,
+# so only the Non-Claimable templates ever post to it.
+ITEM_TAX_TEMPLATES = {
+	"KE Zero Rated": {"output": 0, "input": 0},
+	"KE Exempt": {"output": 0, "input": 0},
+	"KE Standard 16%": {"output": STANDARD_VAT_RATE, "input": STANDARD_VAT_RATE},
+	"KE Reduced 8%": {"output": REDUCED_VAT_RATE, "input": REDUCED_VAT_RATE},
+	# Passenger cars and minibuses, and their repairs and spares: VAT is
+	# charged but the buyer can't claim it (VAT Act 2013 s.17(5)).
+	"KE Non-Claimable 16%": {"output": STANDARD_VAT_RATE, "input": 0, "non_recoverable": STANDARD_VAT_RATE},
+	"KE Non-Claimable 8%": {"output": REDUCED_VAT_RATE, "input": 0, "non_recoverable": REDUCED_VAT_RATE},
+}
+
+ROLE_ACCOUNT_FIELDS = {
+	"output": "output_vat_account",
+	"input": "input_vat_account",
+	"non_recoverable": "non_recoverable_vat_account",
+}
+
+# (Kenya Accounting Settings field, doctype, title, rate, inclusive). Purchase
+# templates also get the 0% Non-Recoverable VAT row - see _purchase_rows().
+VAT_TEMPLATES = [
+	("sales_vat_template", "Sales Taxes and Charges Template", "KE - Standard VAT 16% - Sales", STANDARD_VAT_RATE, 0),
+	(
+		"sales_vat_inclusive_template",
+		"Sales Taxes and Charges Template",
+		"KE - Standard VAT 16% Inclusive - Sales",
+		STANDARD_VAT_RATE,
+		1,
+	),
+	(
+		"sales_reduced_vat_inclusive_template",
+		"Sales Taxes and Charges Template",
+		"KE - Reduced VAT 8% Inclusive - Sales",
+		REDUCED_VAT_RATE,
+		1,
+	),
+	(
+		"purchase_vat_template",
+		"Purchase Taxes and Charges Template",
+		"KE - Standard VAT 16% - Purchase",
+		STANDARD_VAT_RATE,
+		0,
+	),
+	(
+		"purchase_vat_inclusive_template",
+		"Purchase Taxes and Charges Template",
+		"KE - Standard VAT 16% Inclusive - Purchase",
+		STANDARD_VAT_RATE,
+		1,
+	),
+	(
+		"purchase_reduced_vat_inclusive_template",
+		"Purchase Taxes and Charges Template",
+		"KE - Reduced VAT 8% Inclusive - Purchase",
+		REDUCED_VAT_RATE,
+		1,
+	),
+]
 
 
 def create_tax_categories():
@@ -41,68 +107,101 @@ def create_tax_categories():
 
 def create_vat_templates(company, accounts):
 	"""accounts: the dict returned by accounts.create_core_tax_accounts(), or an
-	equivalent {fieldname: account_name} mapping - only input_vat_account and
-	output_vat_account are used here.
+	equivalent {fieldname: account_name} mapping.
 
 	Returns {fieldname: template_name}, keyed to match Kenya Accounting Settings.
 	"""
 	result = {}
-
-	result["sales_vat_template"] = _get_or_create_tax_template(
-		"Sales Taxes and Charges Template",
-		company=company,
-		title="KE - Standard VAT 16% - Sales",
-		account_head=accounts["output_vat_account"],
-		rate=STANDARD_VAT_RATE,
-		description="Kenya Standard VAT 16% - Sales",
-	)
-	result["purchase_vat_template"] = _get_or_create_tax_template(
-		"Purchase Taxes and Charges Template",
-		company=company,
-		title="KE - Standard VAT 16% - Purchase",
-		account_head=accounts["input_vat_account"],
-		rate=STANDARD_VAT_RATE,
-		description="Kenya Standard VAT 16% - Purchases",
-		is_purchase=True,
-	)
-	result["purchase_vat_inclusive_template"] = _get_or_create_tax_template(
-		"Purchase Taxes and Charges Template",
-		company=company,
-		title="KE - Standard VAT 16% Inclusive - Purchase",
-		account_head=accounts["input_vat_account"],
-		rate=STANDARD_VAT_RATE,
-		description="Kenya Standard VAT 16% Inclusive - Purchases",
-		included_in_print_rate=1,
-		is_purchase=True,
-	)
+	for fieldname, doctype, title, rate, inclusive in VAT_TEMPLATES:
+		is_purchase = doctype == "Purchase Taxes and Charges Template"
+		account = accounts["input_vat_account" if is_purchase else "output_vat_account"]
+		rows = [_vat_row(account, rate, inclusive, title, is_purchase)]
+		if is_purchase:
+			rows += _purchase_rows(accounts, inclusive)
+		result[fieldname] = _get_or_create_tax_template(doctype, company, title, rows)
 	return result
 
 
+def _vat_row(account_head, rate, inclusive, description, is_purchase):
+	row = {
+		"charge_type": "On Net Total",
+		"account_head": account_head,
+		"description": description,
+		"rate": rate,
+		"included_in_print_rate": inclusive,
+	}
+	if is_purchase:
+		# "Total" (not "Valuation"): recoverable input VAT affects the invoice
+		# total, not item cost/stock valuation - spec section 8.
+		row["category"] = "Total"
+		row["add_deduct_tax"] = "Add"
+	return row
+
+
+def _purchase_rows(accounts, inclusive):
+	"""The Non-Recoverable VAT row every purchase template carries at 0%. It
+	only takes a rate on lines whose Item Tax Template switches it on (the
+	KE Non-Claimable ones), which also zero the Input VAT row for that line -
+	so a passenger car's VAT is expensed, never claimed."""
+	if not accounts.get("non_recoverable_vat_account"):
+		return []
+	return [
+		_vat_row(
+			accounts["non_recoverable_vat_account"],
+			0,
+			inclusive,
+			"Non-Recoverable VAT (passenger vehicles etc.)",
+			is_purchase=True,
+		)
+	]
+
+
+def add_non_recoverable_row(company, accounts):
+	"""For companies set up before the Non-Recoverable VAT row existed: add it
+	to their purchase templates - but only to a template still exactly as we
+	shipped it (one row, our Input VAT account). One the accountant has changed
+	is theirs (ADR-023) and is left alone. Returns (updated, skipped) names."""
+	updated, skipped = [], []
+	for _fieldname, doctype, title, _rate, inclusive in VAT_TEMPLATES:
+		if doctype != "Purchase Taxes and Charges Template":
+			continue
+		name = frappe.db.get_value(doctype, {"title": title, "company": company}, "name")
+		if not name:
+			continue
+		doc = frappe.get_doc(doctype, name)
+		accounts_used = [row.account_head for row in doc.taxes]
+		if accounts.get("non_recoverable_vat_account") in accounts_used:
+			continue
+		if accounts_used != [accounts["input_vat_account"]]:
+			skipped.append(name)
+			continue
+		for row in _purchase_rows(accounts, inclusive):
+			doc.append("taxes", row)
+		doc.save(ignore_permissions=True)
+		updated.append(name)
+	return updated, skipped
+
+
 def create_item_tax_templates(company, accounts):
-	"""0% Item Tax Templates for zero-rated and exempt items, on both the output
-	(sales) and input (purchase) VAT accounts. Found by the 2026-09-28 withholding
-	review: without them a client selling zero-rated or exempt goods had nothing to
-	pick on the item, so those lines were charged the invoice's 16%.
+	"""Item Tax Templates for each VAT treatment (ITEM_TAX_TEMPLATES). Found by the
+	2026-09-28 withholding review: without them a client selling zero-rated or
+	exempt goods had nothing to pick on the item, so those lines were charged the
+	invoice's 16%.
 
 	Returns {title: template_name}. An existing template with the same title is
 	reused untouched (ADR-023: the client owns it once created).
 	"""
 	result = {}
-	for title in ITEM_TAX_TEMPLATES:
+	for title, rates in ITEM_TAX_TEMPLATES.items():
 		existing = frappe.db.get_value("Item Tax Template", {"title": title, "company": company}, "name")
 		if not existing:
+			taxes = [
+				{"tax_type": accounts[ROLE_ACCOUNT_FIELDS[role]], "tax_rate": rate}
+				for role, rate in rates.items()
+				if accounts.get(ROLE_ACCOUNT_FIELDS[role])
+			]
 			existing = (
-				frappe.get_doc(
-					{
-						"doctype": "Item Tax Template",
-						"title": title,
-						"company": company,
-						"taxes": [
-							{"tax_type": accounts["output_vat_account"], "tax_rate": 0},
-							{"tax_type": accounts["input_vat_account"], "tax_rate": 0},
-						],
-					}
-				)
+				frappe.get_doc({"doctype": "Item Tax Template", "title": title, "company": company, "taxes": taxes})
 				.insert(ignore_permissions=True)
 				.name
 			)
@@ -136,33 +235,11 @@ def disable_erpnext_default_kenya_tax_templates(company):
 	return disabled
 
 
-def _get_or_create_tax_template(
-	doctype, company, title, account_head, rate, description, included_in_print_rate=0, is_purchase=False
-):
+def _get_or_create_tax_template(doctype, company, title, rows):
 	existing = frappe.db.get_value(doctype, {"title": title, "company": company}, "name")
 	if existing:
 		return existing
 
-	row = {
-		"charge_type": "On Net Total",
-		"account_head": account_head,
-		"description": description,
-		"rate": rate,
-		"included_in_print_rate": included_in_print_rate,
-	}
-	if is_purchase:
-		# "Total" (not "Valuation"): recoverable input VAT affects the invoice
-		# total, not item cost/stock valuation - spec section 8.
-		row["category"] = "Total"
-		row["add_deduct_tax"] = "Add"
-
-	doc = frappe.get_doc(
-		{
-			"doctype": doctype,
-			"title": title,
-			"company": company,
-			"taxes": [row],
-		}
-	)
+	doc = frappe.get_doc({"doctype": doctype, "title": title, "company": company, "taxes": rows})
 	doc.insert(ignore_permissions=True)
 	return doc.name

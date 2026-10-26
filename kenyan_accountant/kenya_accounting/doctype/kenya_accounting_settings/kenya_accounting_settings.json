@@ -18,6 +18,7 @@
   "wht_receivable_account",
   "wht_payable_account",
   "income_tax_payable_account",
+  "non_recoverable_vat_account",
   "vat_withholding_section",
   "is_vat_withholding_agent",
   "vat_withholding_rate",
@@ -25,9 +26,13 @@
   "vat_withholding_payable_account",
   "vat_withholding_receivable_account",
   "templates_section",
+  "pricing_profile",
   "sales_vat_template",
+  "sales_vat_inclusive_template",
+  "sales_reduced_vat_inclusive_template",
   "purchase_vat_template",
   "purchase_vat_inclusive_template",
+  "purchase_reduced_vat_inclusive_template",
   "printing_section",
   "payment_details",
   "column_break_printing",
@@ -113,6 +118,13 @@
    "options": "Account"
   },
   {
+   "description": "VAT paid that can't be claimed back (e.g. passenger cars and their repairs). An expense; never on the VAT return.",
+   "fieldname": "non_recoverable_vat_account",
+   "fieldtype": "Link",
+   "label": "Non-Recoverable VAT Account",
+   "options": "Account"
+  },
+  {
    "fieldname": "vat_withholding_section",
    "fieldtype": "Section Break",
    "label": "VAT Withholding (WVAT)"
@@ -157,9 +169,30 @@
    "label": "VAT Templates"
   },
   {
+   "description": "Ticks the default Sales and Purchase VAT templates (and POS Profiles' template) so new invoices start with the right one. You can tick a different default on any template afterwards.",
+   "fieldname": "pricing_profile",
+   "fieldtype": "Select",
+   "label": "Pricing Profile",
+   "options": "\nRetail / POS\nB2B / Services\nFuel Station"
+  },
+  {
    "fieldname": "sales_vat_template",
    "fieldtype": "Link",
    "label": "Sales VAT Template",
+   "options": "Sales Taxes and Charges Template"
+  },
+  {
+   "description": "Shelf price already includes VAT (retail, POS)",
+   "fieldname": "sales_vat_inclusive_template",
+   "fieldtype": "Link",
+   "label": "Sales VAT Template (Inclusive)",
+   "options": "Sales Taxes and Charges Template"
+  },
+  {
+   "description": "Reduced rate, price includes VAT (fuel)",
+   "fieldname": "sales_reduced_vat_inclusive_template",
+   "fieldtype": "Link",
+   "label": "Sales Reduced VAT Template (Inclusive)",
    "options": "Sales Taxes and Charges Template"
   },
   {
@@ -176,26 +209,33 @@
    "options": "Purchase Taxes and Charges Template"
   },
   {
-   "fieldname": "printing_section",
-   "fieldtype": "Section Break",
-   "label": "Printed Documents",
-   "description": "Your logo, address and KRA PIN come from the Company record. Set them there."
+   "description": "Reduced rate, supplier price includes VAT (fuel)",
+   "fieldname": "purchase_reduced_vat_inclusive_template",
+   "fieldtype": "Link",
+   "label": "Purchase Reduced VAT Template (Inclusive)",
+   "options": "Purchase Taxes and Charges Template"
   },
   {
+   "description": "Your logo, address and KRA PIN come from the Company record. Set them there.",
+   "fieldname": "printing_section",
+   "fieldtype": "Section Break",
+   "label": "Printed Documents"
+  },
+  {
+   "description": "Printed on invoices and quotations. For example:\nM-Pesa Paybill 123456, Account: your invoice number\nBank: Equity Bank, A/C 0123456789, Branch: Westlands",
    "fieldname": "payment_details",
    "fieldtype": "Small Text",
-   "label": "How Customers Pay You",
-   "description": "Printed on invoices and quotations. For example:\nM-Pesa Paybill 123456, Account: your invoice number\nBank: Equity Bank, A/C 0123456789, Branch: Westlands"
+   "label": "How Customers Pay You"
   },
   {
    "fieldname": "column_break_printing",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Used for the document title and lines on printed documents. Leave blank for dark grey.",
    "fieldname": "print_accent_color",
    "fieldtype": "Color",
-   "label": "Accent Colour",
-   "description": "Used for the document title and lines on printed documents. Leave blank for dark grey."
+   "label": "Accent Colour"
   },
   {
    "fieldname": "review_section",
@@ -212,7 +252,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 16:00:00.000000",
+ "modified": "2026-10-26 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Kenya Accounting",
  "name": "Kenya Accounting Settings",

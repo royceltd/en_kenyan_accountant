@@ -12,14 +12,22 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from kenyan_accountant.setup.accounts import CORE_TAX_ACCOUNTS, create_core_tax_accounts
+from kenyan_accountant.setup.pricing import apply_pricing_profile
 from kenyan_accountant.setup.utils import TEST_COMPANY
 from kenyan_accountant.setup.vat import (
-	TAX_CATEGORIES,
 	ITEM_TAX_TEMPLATES,
+	ROLE_ACCOUNT_FIELDS,
+	TAX_CATEGORIES,
+	add_non_recoverable_row,
 	create_item_tax_templates,
 	create_tax_categories,
 	create_vat_templates,
 	disable_erpnext_default_kenya_tax_templates,
+)
+from kenyan_accountant.setup.vehicles import (
+	VEHICLE_EXPENSE_ITEMS,
+	create_vehicle_accounts,
+	create_vehicle_expense_items,
 )
 from kenyan_accountant.setup.wht import WHT_CATEGORIES, create_wht_categories
 
@@ -110,6 +118,59 @@ class TestCreateVatTemplates(IntegrationTestCase):
 		self.assertEqual(inclusive.taxes[0].account_head, accounts["input_vat_account"])
 		self.assertTrue(inclusive.taxes[0].included_in_print_rate)
 
+	def test_purchase_templates_carry_a_0_percent_non_recoverable_row(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_vat_templates(TEST_COMPANY, accounts)
+		for field in (
+			"purchase_vat_template",
+			"purchase_vat_inclusive_template",
+			"purchase_reduced_vat_inclusive_template",
+		):
+			doc = frappe.get_doc("Purchase Taxes and Charges Template", templates[field])
+			rows = {row.account_head: row for row in doc.taxes}
+			self.assertEqual(rows[accounts["non_recoverable_vat_account"]].rate, 0, field)
+			# Same inclusive/exclusive treatment as the VAT row it sits beside.
+			self.assertEqual(
+				rows[accounts["non_recoverable_vat_account"]].included_in_print_rate,
+				rows[accounts["input_vat_account"]].included_in_print_rate,
+			)
+
+	def test_inclusive_and_reduced_sales_templates(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_vat_templates(TEST_COMPANY, accounts)
+		inclusive = frappe.get_doc("Sales Taxes and Charges Template", templates["sales_vat_inclusive_template"])
+		self.assertEqual((inclusive.taxes[0].rate, inclusive.taxes[0].included_in_print_rate), (16, 1))
+		reduced = frappe.get_doc(
+			"Sales Taxes and Charges Template", templates["sales_reduced_vat_inclusive_template"]
+		)
+		self.assertEqual((reduced.taxes[0].rate, reduced.taxes[0].included_in_print_rate), (8, 1))
+
+	def test_non_recoverable_row_only_added_to_untouched_templates(self):
+		"""ADR-023: a template the accountant changed is theirs."""
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		without = {k: v for k, v in accounts.items() if k != "non_recoverable_vat_account"}
+		templates = create_vat_templates(TEST_COMPANY, without)  # as shipped before v16.6
+		customised = frappe.get_doc("Purchase Taxes and Charges Template", templates["purchase_vat_template"])
+		customised.taxes[0].description = "Edited by the accountant"
+		customised.append(
+			"taxes",
+			{
+				"charge_type": "Actual",
+				"account_head": accounts["wht_payable_account"],
+				"description": "Their own extra row",
+				"tax_amount": 0,
+				"category": "Total",
+				"add_deduct_tax": "Add",
+			},
+		)
+		customised.save()
+
+		updated, skipped = add_non_recoverable_row(TEST_COMPANY, accounts)
+		self.assertIn(templates["purchase_vat_inclusive_template"], updated)
+		self.assertIn(customised.name, skipped)
+		self.assertEqual(len(frappe.get_doc(customised.doctype, customised.name).taxes), 2)
+		self.assertEqual(add_non_recoverable_row(TEST_COMPANY, accounts), ([], [customised.name]))
+
 	def test_is_idempotent(self):
 		accounts = create_core_tax_accounts(TEST_COMPANY)
 		first_run = create_vat_templates(TEST_COMPANY, accounts)
@@ -121,17 +182,35 @@ class TestCreateItemTaxTemplates(IntegrationTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
 
-	def test_zero_rated_and_exempt_are_0_percent_on_both_vat_accounts(self):
+	def test_each_template_carries_its_rates(self):
 		accounts = create_core_tax_accounts(TEST_COMPANY)
 		templates = create_item_tax_templates(TEST_COMPANY, accounts)
 		self.assertEqual(sorted(templates), sorted(ITEM_TAX_TEMPLATES))
-		for name in templates.values():
+		for title, name in templates.items():
 			doc = frappe.get_doc("Item Tax Template", name)
 			self.assertEqual(doc.company, TEST_COMPANY)
 			rates = {row.tax_type: row.tax_rate for row in doc.taxes}
-			self.assertEqual(
-				rates, {accounts["output_vat_account"]: 0, accounts["input_vat_account"]: 0}
-			)
+			expected = {
+				accounts[ROLE_ACCOUNT_FIELDS[role]]: rate for role, rate in ITEM_TAX_TEMPLATES[title].items()
+			}
+			self.assertEqual(rates, expected, title)
+
+	def test_zero_rated_and_exempt_are_0_percent_on_both_vat_accounts(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_item_tax_templates(TEST_COMPANY, accounts)
+		for title in ("KE Zero Rated", "KE Exempt"):
+			rates = {row.tax_type: row.tax_rate for row in frappe.get_doc("Item Tax Template", templates[title]).taxes}
+			self.assertEqual(rates, {accounts["output_vat_account"]: 0, accounts["input_vat_account"]: 0})
+
+	def test_non_claimable_moves_purchase_vat_to_the_expense_account(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		templates = create_item_tax_templates(TEST_COMPANY, accounts)
+		rates = {
+			row.tax_type: row.tax_rate
+			for row in frappe.get_doc("Item Tax Template", templates["KE Non-Claimable 8%"]).taxes
+		}
+		self.assertEqual(rates[accounts["input_vat_account"]], 0)
+		self.assertEqual(rates[accounts["non_recoverable_vat_account"]], 8)
 
 	def test_is_idempotent_and_keeps_a_client_edited_template(self):
 		accounts = create_core_tax_accounts(TEST_COMPANY)
@@ -223,3 +302,61 @@ class TestDisableErpnextDefaultKenyaTaxTemplates(IntegrationTestCase):
 		disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
 		second_run = disable_erpnext_default_kenya_tax_templates(TEST_COMPANY)
 		self.assertEqual(second_run, [])
+
+
+class TestVehicles(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_accounts_and_items_map_vat_by_vehicle_class(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		item_tax_templates = create_item_tax_templates(TEST_COMPANY, accounts)
+		vehicle_accounts = create_vehicle_accounts(TEST_COMPANY)
+		self.assertEqual(frappe.db.get_value("Account", vehicle_accounts["motor_vehicles"], "account_type"), "Fixed Asset")
+
+		create_vehicle_expense_items(TEST_COMPANY, vehicle_accounts, item_tax_templates)
+		for item_code, account_key, tax_title, _uom in VEHICLE_EXPENSE_ITEMS:
+			item = frappe.get_doc("Item", item_code)
+			self.assertFalse(item.is_stock_item)
+			defaults = {row.company: row.expense_account for row in item.item_defaults}
+			self.assertEqual(defaults[TEST_COMPANY], vehicle_accounts[account_key])
+			self.assertIn(item_tax_templates[tax_title], [row.item_tax_template for row in item.taxes])
+
+		# Items are shared across companies; each company has its own row.
+		def template_for(item_code):
+			for row in frappe.get_doc("Item", item_code).taxes:
+				if frappe.db.get_value("Item Tax Template", row.item_tax_template, "company") == TEST_COMPANY:
+					return row.item_tax_template
+
+		self.assertEqual(template_for("Fuel - Passenger Vehicle"), item_tax_templates["KE Non-Claimable 8%"])
+		self.assertEqual(template_for("Fuel - Commercial Vehicle"), item_tax_templates["KE Reduced 8%"])
+
+	def test_is_idempotent(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		item_tax_templates = create_item_tax_templates(TEST_COMPANY, accounts)
+		vehicle_accounts = create_vehicle_accounts(TEST_COMPANY)
+		create_vehicle_expense_items(TEST_COMPANY, vehicle_accounts, item_tax_templates)
+		self.assertEqual(create_vehicle_accounts(TEST_COMPANY), vehicle_accounts)
+		self.assertEqual(create_vehicle_expense_items(TEST_COMPANY, vehicle_accounts, item_tax_templates), [])
+
+
+class TestPricingProfile(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_profile_ticks_company_defaults(self):
+		accounts = create_core_tax_accounts(TEST_COMPANY)
+		settings = frappe._dict(company=TEST_COMPANY, **create_vat_templates(TEST_COMPANY, accounts))
+		for profile, sales_field, purchase_field in (
+			("Retail / POS", "sales_vat_inclusive_template", "purchase_vat_inclusive_template"),
+			("Fuel Station", "sales_reduced_vat_inclusive_template", "purchase_reduced_vat_inclusive_template"),
+			("B2B / Services", "sales_vat_template", "purchase_vat_template"),
+		):
+			settings.pricing_profile = profile
+			apply_pricing_profile(settings)
+			for doctype, field in (
+				("Sales Taxes and Charges Template", sales_field),
+				("Purchase Taxes and Charges Template", purchase_field),
+			):
+				defaults = frappe.get_all(doctype, filters={"company": TEST_COMPANY, "is_default": 1}, pluck="name")
+				self.assertEqual(defaults, [settings[field]], profile)

@@ -6,12 +6,15 @@ from frappe import _
 from frappe.model.document import Document
 
 from kenyan_accountant.setup.accounts import create_core_tax_accounts
+from kenyan_accountant.setup.pricing import apply_pricing_profile
 from kenyan_accountant.setup.vat import (
+	add_non_recoverable_row,
 	create_item_tax_templates,
 	create_tax_categories,
 	create_vat_templates,
 	disable_erpnext_default_kenya_tax_templates,
 )
+from kenyan_accountant.setup.vehicles import create_vehicle_accounts, create_vehicle_expense_items
 from kenyan_accountant.setup.wht import create_wht_categories
 
 # Kept in one place because run_setup() both reads and writes these fields by
@@ -26,6 +29,7 @@ ACCOUNT_FIELDS = [
 	"income_tax_payable_account",
 	"vat_withholding_payable_account",
 	"vat_withholding_receivable_account",
+	"non_recoverable_vat_account",
 ]
 
 
@@ -38,6 +42,9 @@ class KenyaAccountingSettings(Document):
 			self.setup_status = "Reviewed"
 		elif not self.reviewed and self.setup_status in ("Reviewed", "Activated"):
 			self.setup_status = "Draft Configuration"
+
+		if self.pricing_profile and (self.is_new() or self.has_value_changed("pricing_profile")):
+			apply_pricing_profile(self)
 
 	@frappe.whitelist()
 	def run_setup(self):
@@ -61,8 +68,12 @@ class KenyaAccountingSettings(Document):
 			if not self.get(fieldname):
 				self.set(fieldname, template)
 
-		create_item_tax_templates(self.company, accounts)
+		item_tax_templates = create_item_tax_templates(self.company, accounts)
+		# Companies set up before the Non-Recoverable VAT row existed already
+		# have purchase templates; give them the row where still untouched.
+		_updated, customised = add_non_recoverable_row(self.company, accounts)
 		create_wht_categories(self.company, accounts["wht_payable_account"])
+		create_vehicle_expense_items(self.company, create_vehicle_accounts(self.company), item_tax_templates)
 
 		# ERPNext's own country-default "Kenya Tax" template, if this company has
 		# one, competes with the templates just created above - disable it so
@@ -73,7 +84,14 @@ class KenyaAccountingSettings(Document):
 			self.setup_status = "Draft Configuration"
 
 		self.save(ignore_permissions=True)
-		return {"status": self.setup_status, "disabled_defaults": disabled_defaults}
+		return {
+			"status": self.setup_status,
+			"disabled_defaults": disabled_defaults,
+			# Purchase templates the accountant has changed, so the 0%
+			# Non-Recoverable VAT row wasn't added - Non-Claimable Item Tax
+			# Templates won't expense VAT on them until it is.
+			"templates_missing_non_recoverable_row": customised,
+		}
 
 	@frappe.whitelist()
 	def activate(self):
