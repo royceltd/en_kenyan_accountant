@@ -59,6 +59,7 @@
   .kx-doc .kx-sign td.kx-sign-line { border-top: 1px solid #9ca3af; padding-top: 4px !important; }
   .kx-doc .kx-footer { margin-top: 22px; border-top: 1px solid #e5e7eb; padding: 7px 6px 0 0; font-size: 7.5pt; color: #6b7280; word-wrap: break-word; }
   .kx-doc .kx-qr { width: 92px; height: 92px; }
+  .kx-doc .kx-etims td { vertical-align: top; }
   .kx-doc .kx-pin { font-size: 8pt; font-weight: 600; color: #374151; margin-top: 3px; }
 
   /* Addresses: one line per part, readable grey, not the faint caption grey. */
@@ -257,4 +258,32 @@
 {%- macro footer(note, letterhead_footer, no_letterhead, ctx) -%}
 <div class="kx-footer">{{ note }}</div>
 {% if letterhead_footer and not no_letterhead and ctx.use_letter_head %}<div class="kx-letterhead-footer">{{ letterhead_footer }}</div>{% endif %}
+{%- endmacro -%}
+
+{#- KRA eTIMS control unit details, beside the verification QR - only on a document
+    royce_etims has signed (ctx.etims is empty otherwise). -#}
+{%- macro etims_block(etims) -%}
+<div class="kx-caption">{{ _("KRA eTIMS") }}</div>
+<table class="kx-etims" style="width: 100%; table-layout: fixed;"><tr>
+  <td style="width: 104px; padding-right: 10px;">
+    <img class="kx-qr" src="{{ etims.qr }}" width="92" height="92" alt="">
+    <div class="kx-small kx-muted" style="width: 92px; text-align: center;">{{ _("Scan to verify with KRA") }}</div>
+  </td>
+  <td class="kx-small">
+    <table style="width: 100%; table-layout: fixed;">
+    {% for label, value in [
+        ("CU ID", etims.cu_id),
+        ("CU Invoice No.", etims.cu_id ~ "/" ~ etims.receipt_number if etims.cu_id and etims.receipt_number else etims.receipt_number),
+        ("CU Date & Time", etims.datetime),
+        ("Internal Data", etims.internal_data),
+        ("Receipt Signature", etims.signature),
+    ] if value %}
+      <tr>
+        <td class="kx-muted" style="width: 38%; padding: 1px 6px 1px 0;">{{ _(label) }}</td>
+        <td style="font-weight: 600; word-wrap: break-word; padding: 1px 0;">{{ value }}</td>
+      </tr>
+    {% endfor %}
+    </table>
+  </td>
+</tr></table>
 {%- endmacro -%}

@@ -250,3 +250,17 @@ class TestSetupChecklist(IntegrationTestCase):
 
 		frappe.db.set_value("Company", company, "tax_id", "P051234567X")
 		self.assertNotIn("pin", [i["key"] for i in pending_items(company)])
+
+
+class TestEtimsPrintDetails(IntegrationTestCase):
+	def test_cu_datetime_reads_kras_format(self):
+		from kenyan_accountant.printing import _cu_datetime
+
+		self.assertEqual(_cu_datetime("20261026143512"), "26-10-2026 14:35:12")
+		self.assertEqual(_cu_datetime("2026-10-26 14:35:12"), "2026-10-26 14:35:12")  # printed as received
+		self.assertEqual(_cu_datetime(None), "")
+
+	def test_unsigned_document_has_no_etims_details(self):
+		from kenyan_accountant.printing import _etims
+
+		self.assertEqual(_etims(frappe._dict()), {})

@@ -450,12 +450,27 @@ def _etims(doc) -> frappe._dict:
 	if not invoice_number:
 		return frappe._dict()
 	url = doc.get("royce_etims_qr_verification_url") or ""
+	branch = doc.get("royce_etims_branch")
 	return frappe._dict(
 		invoice_number=invoice_number,
+		# The control unit (SCU) that signed it, and its own receipt counter -
+		# what KRA's receipt layout calls the CU ID and CU invoice number.
+		cu_id=(frappe.db.get_value("eTIMS Branch", branch, "sdc_id") if branch else "") or "",
+		receipt_number=doc.get("royce_etims_current_receipt_number") or "",
+		internal_data=doc.get("royce_etims_internal_data") or "",
 		signature=doc.get("royce_etims_receipt_signature") or "",
-		datetime=doc.get("royce_etims_control_unit_datetime") or "",
+		datetime=_cu_datetime(doc.get("royce_etims_control_unit_datetime")),
 		qr=_qr_data_uri(url) if url else "",
 	)
+
+
+def _cu_datetime(value) -> str:
+	"""KRA returns sdcDateTime as YYYYMMDDHHMMSS; printed as DD-MM-YYYY HH:MM:SS.
+	Anything else is printed as received rather than guessed at."""
+	text = str(value or "")
+	if len(text) == 14 and text.isdigit():
+		return f"{text[6:8]}-{text[4:6]}-{text[0:4]} {text[8:10]}:{text[10:12]}:{text[12:14]}"
+	return text
 
 
 def _qr_data_uri(text: str) -> str:

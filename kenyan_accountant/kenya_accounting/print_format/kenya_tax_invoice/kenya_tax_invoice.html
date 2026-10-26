@@ -1,6 +1,6 @@
 {#- Sales Invoice. Prints as "Tax Invoice" when VAT is charged, "Invoice" when it
     isn't, and "Credit Note" / "Debit Note" for returns (printing.document_title). -#}
-{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, money, parties, items_table, totals, payment_details, terms, footer -%}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, money, parties, items_table, totals, payment_details, terms, footer, etims_block -%}
 {%- set ctx = kenya_print_context(doc) -%}
 {{ styles(ctx) }}
 <div class="kx-doc">
@@ -28,9 +28,8 @@
   <table><tr>
     <td class="kx-gap">{% if not doc.is_return %}{{ payment_details(ctx, doc.name) }}{% endif %}</td>
     {% if ctx.etims.qr %}
-    <td class="kx-right kx-section" style="width: 120px;">
-      <img class="kx-qr" src="{{ ctx.etims.qr }}" alt="">
-      <div class="kx-small kx-muted">{{ _("Scan to verify with KRA") }}</div>
+    <td class="kx-section" style="width: 58%;">
+      {{ etims_block(ctx.etims) }}
     </td>
     {% endif %}
   </tr></table>
