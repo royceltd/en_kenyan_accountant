@@ -1,0 +1,98 @@
+{#- Till receipt for the Point of Sale (80 mm roll). The KRA eTIMS section shows
+    only for a company eTIMS signs for: the control unit details and QR once KRA
+    has signed the sale, a "signature pending" notice until then. -#}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import money -%}
+{%- set ctx = kenya_print_context(doc) -%}
+{%- set vat_rates = vat_by_rate(doc) -%}
+<style>
+  .print-format { padding: 0 !important; }
+  .kx-pos { width: 72mm; margin: 0 auto; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 8.5pt; color: #000; line-height: 1.35; }
+  .kx-pos td, .kx-pos th { padding: 1px 0 !important; border: 0 !important; vertical-align: top; }
+  .kx-pos table { width: 100%; border-collapse: collapse; }
+  .kx-pos .c { text-align: center; }
+  .kx-pos .r { text-align: right; white-space: nowrap; }
+  .kx-pos .b { font-weight: 700; }
+  .kx-pos .small { font-size: 7.5pt; }
+  .kx-pos .rule { border-top: 1px dashed #000; margin: 5px 0; }
+  .kx-pos .title { font-size: 10pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 4px 0 2px; }
+  .kx-pos .company { font-size: 11pt; font-weight: 700; }
+  .kx-pos .total td { font-size: 10pt; font-weight: 700; }
+  .kx-pos .kra-qr { width: 120px; height: 120px; }
+  .kx-pos .notice { border: 1px solid #000; padding: 4px; margin-top: 4px; }
+  .kx-pos .break { word-break: break-all; }
+</style>
+<div class="kx-pos">
+  <div class="c">
+    <div class="company">{{ ctx.company.name }}</div>
+    {% for line in ctx.company.address.lines %}<div class="small">{{ line }}</div>{% endfor %}
+    {% if ctx.company.phone %}<div class="small">{{ _("Tel") }}: {{ ctx.company.phone }}</div>{% endif %}
+    {% if ctx.company.tax_id %}<div class="small b">{{ _("KRA PIN") }}: {{ ctx.company.tax_id }}</div>{% endif %}
+    <div class="title">{{ _(ctx.title) }}</div>
+  </div>
+
+  <table class="small">
+    <tr><td>{{ _("No.") }}</td><td class="r">{{ doc.name }}</td></tr>
+    {% if doc.is_return and doc.return_against %}<tr><td>{{ _("Against") }}</td><td class="r">{{ doc.return_against }}</td></tr>{% endif %}
+    <tr><td>{{ _("Date") }}</td><td class="r">{{ frappe.utils.formatdate(doc.posting_date) }}{% if doc.posting_time %} {{ frappe.utils.format_time(doc.posting_time, "HH:mm") }}{% endif %}</td></tr>
+    <tr><td>{{ _("Served by") }}</td><td class="r">{{ frappe.db.get_value("User", doc.owner, "full_name") or doc.owner }}</td></tr>
+    <tr><td>{{ _("Customer") }}</td><td class="r">{{ doc.customer_name }}</td></tr>
+    {% if doc.tax_id %}<tr><td>{{ _("Customer PIN") }}</td><td class="r">{{ doc.tax_id }}</td></tr>{% endif %}
+  </table>
+
+  <div class="rule"></div>
+  <table>
+    {% for item in doc.items %}
+    {%- set line = ctx.line_vat.get(item.name) or {} -%}
+    <tr><td colspan="2">{{ item.item_name }}</td></tr>
+    <tr class="small">
+      <td>&nbsp;&nbsp;{{ kenya_qty(item.qty) }} {{ item.uom }} x {{ money(item.rate) }}{% if line.get("rate") %} &middot; {{ _("VAT") }} {{ kenya_pct(line.rate) }}{% endif %}</td>
+      <td class="r">{{ money(item.amount) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <div class="rule"></div>
+  <table>
+    {% if doc.discount_amount %}<tr><td>{{ _("Discount") }}</td><td class="r">-{{ money(doc.discount_amount) }}</td></tr>{% endif %}
+    <tr class="total"><td>{{ _("TOTAL") }}</td><td class="r">{{ money(doc.grand_total) }}</td></tr>
+    {% if doc.rounding_adjustment %}<tr><td>{{ _("Rounded Total") }}</td><td class="r">{{ money(doc.rounded_total) }}</td></tr>{% endif %}
+    {% for p in doc.payments if p.amount %}<tr><td>{{ p.mode_of_payment }}</td><td class="r">{{ money(p.amount) }}</td></tr>{% endfor %}
+    {% if doc.change_amount %}<tr><td>{{ _("Change") }}</td><td class="r">{{ money(doc.change_amount) }}</td></tr>{% endif %}
+  </table>
+
+  {% if vat_rates %}
+  <div class="rule"></div>
+  <table class="small">
+    <tr><td class="b">{{ _("VAT rate") }}</td><td class="r b">{{ _("Taxable") }}</td><td class="r b">{{ _("VAT") }}</td></tr>
+    {% for v in vat_rates %}
+    <tr><td>{{ kenya_pct(v.rate) if v.rate else _("Exempt / 0%") }}</td><td class="r">{{ money(v.taxable) }}</td><td class="r">{{ money(v.vat) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if ctx.etims.invoice_number %}
+  <div class="rule"></div>
+  <div class="c b">{{ _("KRA eTIMS") }}</div>
+  <table class="small">
+    {% for label, value in [
+        ("CU ID", ctx.etims.cu_id),
+        ("CU Invoice No.", ctx.etims.cu_id ~ "/" ~ ctx.etims.receipt_number if ctx.etims.cu_id and ctx.etims.receipt_number else ctx.etims.receipt_number),
+        ("CU Date & Time", ctx.etims.datetime),
+        ("Internal Data", ctx.etims.internal_data),
+        ("Receipt Signature", ctx.etims.signature),
+    ] if value %}
+    <tr><td style="width: 38%;">{{ _(label) }}</td><td class="r break">{{ value }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if ctx.etims.qr %}<div class="c" style="margin-top: 4px;"><img class="kra-qr" src="{{ ctx.etims.qr }}" width="120" height="120" alt=""><div class="small">{{ _("Scan to verify with KRA") }}</div></div>{% endif %}
+  {% elif ctx.etims_status in ("Pending", "Failed") %}
+  <div class="rule"></div>
+  <div class="c small notice">
+    {% if ctx.etims_status == "Pending" %}{{ _("KRA signature pending. Ask for a reprinted receipt with the KRA QR code.") }}
+    {% else %}{{ _("Not yet signed by KRA. This receipt will be reissued once KRA signs it.") }}{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="rule"></div>
+  <div class="c small">{{ _("Thank you for shopping with us.") }}</div>
+</div>

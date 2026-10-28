@@ -3,7 +3,7 @@
 
 import frappe
 
-from kenyan_accountant.printing import set_default_print_formats
+from kenyan_accountant.printing import set_default_pos_print_format, set_default_print_formats
 
 
 def after_install():
@@ -11,4 +11,5 @@ def after_install():
 	standard print formats are already synced by this point (install_app syncs
 	the module before calling after_install)."""
 	done = set_default_print_formats()
+	set_default_pos_print_format()
 	frappe.logger("kenyan_accountant").info(f"after_install: default print formats set for {done}")

@@ -14,14 +14,17 @@ from frappe.utils.fixtures import sync_fixtures
 from kenyan_accountant.patches.v16_2.remove_shipped_client_scripts import remove_if_unchanged
 from kenyan_accountant.printing import (
 	DEFAULT_PRINT_FORMATS,
+	POS_PRINT_FORMAT,
 	address_block,
 	amount_box,
 	document_badge,
 	document_title,
 	kenya_pct,
 	kenya_qty,
+	set_default_pos_print_format,
 	set_default_print_formats,
 	uses_own_letter_head,
+	vat_by_rate,
 )
 from kenyan_accountant.setup_checklist import pending_items
 
@@ -264,3 +267,54 @@ class TestEtimsPrintDetails(IntegrationTestCase):
 		from kenyan_accountant.printing import _etims
 
 		self.assertEqual(_etims(frappe._dict()), {})
+
+
+class TestPosReceipt(IntegrationTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def _sale(self, **fields):
+		doc = frappe.new_doc("Sales Invoice")
+		doc.update({"name": "POS-TEST-1", "customer_name": "Walk-in", "grand_total": 1160, "posting_date": "2026-10-29", **fields})
+		doc.append("items", {"item_name": "Soap", "qty": 1, "rate": 1160, "amount": 1160, "net_amount": 1000})
+		doc.items[0].name = "row1"
+		doc.append("item_wise_tax_details", {"item_row": "row1", "rate": 16, "amount": 160})
+		return doc
+
+	def _render(self, doc):
+		path = frappe.get_app_path(
+			"kenyan_accountant", "kenya_accounting", "print_format", "kenya_pos_receipt", "kenya_pos_receipt.html"
+		)
+		return frappe.render_template(frappe.read_file(path), {"doc": doc})
+
+	def test_vat_by_rate(self):
+		self.assertEqual(
+			[(r.rate, r.taxable, r.vat) for r in vat_by_rate(self._sale())], [(16.0, 1000.0, 160.0)]
+		)
+
+	def test_kra_section_only_when_etims_signs_the_sale(self):
+		self.assertNotIn("KRA eTIMS", self._render(self._sale()))
+		self.assertNotIn("KRA signature pending", self._render(self._sale(royce_etims_status="Not Applicable")))
+		self.assertIn("KRA signature pending", self._render(self._sale(royce_etims_status="Pending")))
+		signed = self._render(
+			self._sale(
+				royce_etims_status="Sent",
+				royce_etims_invoice_number=10,
+				royce_etims_current_receipt_number="10",
+				royce_etims_receipt_signature="YKUFZ5SZQPRYFHOH",
+			)
+		)
+		self.assertIn("YKUFZ5SZQPRYFHOH", signed)
+		self.assertNotIn("KRA signature pending", signed)
+
+	def test_pos_default_set_once_and_kept(self):
+		frappe.db.delete("Property Setter", {"doc_type": "POS Profile", "field_name": "print_format", "property": "default"})
+		self.assertTrue(set_default_pos_print_format())
+		self.assertEqual(frappe.get_meta("POS Profile").get_field("print_format").default, POS_PRINT_FORMAT)
+
+		frappe.make_property_setter(
+			{"doctype": "POS Profile", "fieldname": "print_format", "property": "default", "value": "POS Invoice", "property_type": "Text"},
+			is_system_generated=False,
+		)
+		set_default_pos_print_format()
+		self.assertEqual(frappe.get_meta("POS Profile").get_field("print_format").default, "POS Invoice")

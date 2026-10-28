@@ -27,6 +27,10 @@ DEFAULT_PRINT_FORMATS = {
 	"Payment Entry": "Kenya Payment Receipt",
 }
 
+# The till receipt. Set on POS Profiles rather than as the Sales Invoice default:
+# the POS prints the profile's format, the desk keeps Kenya Tax Invoice.
+POS_PRINT_FORMAT = "Kenya POS Receipt"
+
 # What ERPNext's own installer sets as the default before our app is installed
 # (erpnext/setup/install.py set_default_print_formats, v16): "... with Item Image"
 # until 16.36, "... Classic" from 16.5x. Not a client's choice, so ours replaces it;
@@ -85,6 +89,32 @@ def set_default_print_formats(formats: dict | None = None) -> list:
 	return done
 
 
+def set_default_pos_print_format() -> bool:
+	"""Kenya POS Receipt as the POS Profile's default print format, and on
+	profiles that have none - an empty one prints ERPNext's own "POS Invoice",
+	which has no KRA section. Never replaces a format the client chose."""
+	if not frappe.db.exists("Print Format", POS_PRINT_FORMAT):
+		return False
+	if not frappe.db.get_value(
+		"Property Setter",
+		{"doc_type": "POS Profile", "field_name": "print_format", "property": "default"},
+		"value",
+	):
+		frappe.make_property_setter(
+			{
+				"doctype": "POS Profile",
+				"fieldname": "print_format",
+				"property": "default",
+				"value": POS_PRINT_FORMAT,
+				"property_type": "Text",
+			},
+			is_system_generated=False,
+		)
+	for name in frappe.get_all("POS Profile", filters={"print_format": ["in", ("", None)]}, pluck="name"):
+		frappe.db.set_value("POS Profile", name, "print_format", POS_PRINT_FORMAT, update_modified=False)
+	return True
+
+
 def kenya_print_context(doc) -> frappe._dict:
 	"""One call at the top of each template (registered as a Jinja method in hooks)."""
 	company = doc.get("company")
@@ -109,7 +139,22 @@ def kenya_print_context(doc) -> frappe._dict:
 		# "Subtotal (excl. VAT)" + VAT = Total holds either way.
 		tax_inclusive=any(cint(tax.get("included_in_print_rate")) for tax in doc.get("taxes") or []),
 		etims=_etims(doc),
+		# Pending / Failed while royce_etims hasn't signed it; empty without eTIMS.
+		etims_status=doc.get("royce_etims_status") or "",
 	)
+
+
+def vat_by_rate(doc) -> list:
+	"""[{"rate", "taxable", "vat"}] per VAT rate, from the per-line VAT - the
+	breakdown a till receipt prints under its total."""
+	vat = line_vat(doc)
+	rates = {}
+	for item in doc.get("items") or []:
+		line = vat.get(item.name) or {"rate": 0.0, "amount": 0.0}
+		row = rates.setdefault(flt(line["rate"]), {"rate": flt(line["rate"]), "taxable": 0.0, "vat": 0.0})
+		row["taxable"] += flt(item.get("net_amount"))
+		row["vat"] += flt(line["amount"])
+	return [frappe._dict(r) for _rate, r in sorted(rates.items(), reverse=True)]
 
 
 def document_title(doc) -> str:

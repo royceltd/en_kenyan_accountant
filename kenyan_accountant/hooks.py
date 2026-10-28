@@ -45,6 +45,7 @@ extend_bootinfo = "kenyan_accountant.setup_checklist.extend_bootinfo"
 jinja = {
 	"methods": [
 		"kenyan_accountant.printing.kenya_print_context",
+		"kenyan_accountant.printing.vat_by_rate",
 		"kenyan_accountant.printing.kenya_qty",
 		"kenyan_accountant.printing.kenya_pct",
 		"kenyan_accountant.printing.kenya_tax_label",

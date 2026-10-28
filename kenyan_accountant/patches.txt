@@ -8,3 +8,4 @@ kenyan_accountant.patches.v16_2.remove_shipped_client_scripts
 kenyan_accountant.patches.v16_3.add_income_tax_payable_account
 kenyan_accountant.patches.v16_3.add_zero_rated_exempt_item_tax_templates
 kenyan_accountant.patches.v16_6.add_vehicle_and_reduced_vat_setup
+kenyan_accountant.patches.v16_6.set_pos_receipt_print_format
