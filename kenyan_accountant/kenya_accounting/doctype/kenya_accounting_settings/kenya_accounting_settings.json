@@ -27,6 +27,7 @@
   "vat_withholding_receivable_account",
   "templates_section",
   "pricing_profile",
+  "cost_price_list",
   "sales_vat_template",
   "sales_vat_inclusive_template",
   "sales_reduced_vat_inclusive_template",
@@ -176,6 +177,13 @@
    "options": "\nRetail / POS\nB2B / Services\nFuel Station"
   },
   {
+   "description": "For sales at cost (the owner, staff, related businesses). Each item's price here follows its last purchase price, before VAT, in its stock unit; give those customers this price list and an invoice template that adds VAT on top. Must be a selling price list.",
+   "fieldname": "cost_price_list",
+   "fieldtype": "Link",
+   "label": "Cost Price List",
+   "options": "Price List"
+  },
+  {
    "fieldname": "sales_vat_template",
    "fieldtype": "Link",
    "label": "Sales VAT Template",
@@ -252,7 +260,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-26 16:00:00.000000",
+ "modified": "2026-11-03 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Kenya Accounting",
  "name": "Kenya Accounting Settings",

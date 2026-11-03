@@ -65,8 +65,19 @@ doc_events = {
 		"on_trash": "kenyan_accountant.setup.withholding.sync_payment_withholding_credits",
 	},
 	"Purchase Invoice": {
-		"on_submit": "kenyan_accountant.setup.withholding.sync_wht_credits",
-		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_credits",
+		"on_submit": [
+			"kenyan_accountant.setup.withholding.sync_wht_credits",
+			"kenyan_accountant.cost_price_list.sync_cost_price_list",
+		],
+		"on_cancel": [
+			"kenyan_accountant.setup.withholding.sync_wht_credits",
+			"kenyan_accountant.cost_price_list.sync_cost_price_list",
+		],
+	},
+	# Sales at cost follow the last purchase price (cost_price_list.py).
+	"Purchase Receipt": {
+		"on_submit": "kenyan_accountant.cost_price_list.sync_cost_price_list",
+		"on_cancel": "kenyan_accountant.cost_price_list.sync_cost_price_list",
 	},
 	"Journal Entry": {
 		"before_submit": "kenyan_accountant.setup.withholding.sync_wht_claims",

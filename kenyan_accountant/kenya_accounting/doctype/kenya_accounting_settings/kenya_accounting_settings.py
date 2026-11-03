@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from kenyan_accountant.cost_price_list import fill_cost_price_list, validate_cost_price_list
 from kenyan_accountant.setup.accounts import create_core_tax_accounts
 from kenyan_accountant.setup.pricing import apply_pricing_profile
 from kenyan_accountant.setup.vat import (
@@ -45,6 +46,10 @@ class KenyaAccountingSettings(Document):
 
 		if self.pricing_profile and (self.is_new() or self.has_value_changed("pricing_profile")):
 			apply_pricing_profile(self)
+
+		if self.cost_price_list and (self.is_new() or self.has_value_changed("cost_price_list")):
+			validate_cost_price_list(self.cost_price_list)
+			fill_cost_price_list(self.cost_price_list)
 
 	@frappe.whitelist()
 	def run_setup(self):
