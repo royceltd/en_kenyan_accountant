@@ -19,6 +19,7 @@
   "wht_payable_account",
   "income_tax_payable_account",
   "non_recoverable_vat_account",
+  "petty_cash_account",
   "vat_withholding_section",
   "is_vat_withholding_agent",
   "vat_withholding_rate",
@@ -124,6 +125,13 @@
    "fieldtype": "Link",
    "label": "Non-Recoverable VAT Account",
    "options": "Account"
+  },
+  {
+   "fieldname": "petty_cash_account",
+   "fieldtype": "Link",
+   "label": "Petty Cash Account",
+   "options": "Account",
+   "description": "The float petty cash is paid from. Blank: a \"Petty Cash\" ledger beside the company's cash account is made the first time it is used."
   },
   {
    "fieldname": "vat_withholding_section",
@@ -260,7 +268,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-15 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Kenya Accounting",
  "name": "Kenya Accounting Settings",

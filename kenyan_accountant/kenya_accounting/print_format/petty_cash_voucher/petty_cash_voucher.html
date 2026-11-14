@@ -1,0 +1,57 @@
+{#- Petty Cash Request: the voucher the person signs when they take the cash. -#}
+{%- from "kenyan_accountant/templates/print/kenya_document.html" import styles, header, parties, money, footer -%}
+{%- set ctx = kenya_print_context(doc) -%}
+{{ styles(ctx) }}
+<div class="kx-doc">
+  {{ header(ctx, letter_head, no_letterhead, [
+      ("Voucher No.", doc.name),
+      ("Date", frappe.utils.formatdate(doc.posting_date)),
+      ("Status", _(doc.status)),
+      ("Journal Entry", doc.journal_entry),
+  ]) }}
+
+  {{ parties(
+      "Paid To" if doc.status == "Paid" else "Requested By",
+      doc.received_by or doc.requested_for or doc.requested_by_name or doc.requested_by,
+      ("For: " ~ doc.requested_for) if doc.on_behalf and doc.requested_for and doc.requested_for != doc.received_by else "",
+      "",
+      amount=ctx.amount
+  ) }}
+
+  <table class="kx-items">
+    <thead><tr>
+      <th>{{ _("What for") }}</th>
+      <th style="width: 26%;">{{ _("Account") }}</th>
+      <th class="kx-num" style="width: 9%;">{{ _("Qty") }}</th>
+      <th class="kx-num" style="width: 15%;">{{ _("Price") }}</th>
+      <th class="kx-num" style="width: 16%;">{{ _("Amount") }}</th>
+    </tr></thead>
+    <tbody>
+    {% for row in doc.items %}
+      <tr>
+        <td>{{ row.description }}</td>
+        <td class="kx-small">{{ row.expense_account or "" }}</td>
+        <td class="kx-num">{{ frappe.utils.fmt_money(row.qty, precision=0) if row.qty == (row.qty | int) else row.qty }}</td>
+        <td class="kx-num">{{ money(row.rate) }}</td>
+        <td class="kx-num">{{ money(row.amount) }}</td>
+      </tr>
+    {% endfor %}
+      <tr><td colspan="4" class="kx-num"><b>{{ _("Total") }}</b></td><td class="kx-num"><b>{{ money(doc.total_amount) }}</b></td></tr>
+    </tbody>
+  </table>
+
+  <div class="kx-section">
+    <div class="kx-caption">{{ _("Purpose") }}</div>
+    <div class="kx-small">{{ doc.purpose or "" }}</div>
+  </div>
+
+  <table class="kx-section kx-sign" style="margin-top: 36px;"><tr>
+    <td style="width: 30%;" class="kx-sign-line kx-small kx-muted">{{ _("Requested by") }}<br>{{ doc.requested_by_name or doc.requested_by }}</td>
+    <td style="width: 5%;"></td>
+    <td style="width: 30%;" class="kx-sign-line kx-small kx-muted">{{ _("Approved by") }}<br>{{ frappe.db.get_value("User", doc.approved_by, "full_name") if doc.approved_by else "" }}</td>
+    <td style="width: 5%;"></td>
+    <td style="width: 30%;" class="kx-sign-line kx-small kx-muted">{{ _("Received by (signature & date)") }}<br>{{ doc.received_by or "" }}</td>
+  </tr></table>
+
+  {{ footer(_("This is a computer-generated document."), footer, no_letterhead, ctx) }}
+</div>

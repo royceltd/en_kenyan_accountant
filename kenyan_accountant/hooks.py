@@ -81,7 +81,10 @@ doc_events = {
 	},
 	"Journal Entry": {
 		"before_submit": "kenyan_accountant.setup.withholding.sync_wht_claims",
-		"on_cancel": "kenyan_accountant.setup.withholding.sync_wht_claims",
+		"on_cancel": [
+			"kenyan_accountant.setup.withholding.sync_wht_claims",
+			"kenyan_accountant.petty_cash.journal_entry_cancelled",
+		],
 		"on_trash": "kenyan_accountant.setup.withholding.sync_wht_claims",
 	},
 	# A till's discount/price settings, enforced on the server (pos_controls.py).

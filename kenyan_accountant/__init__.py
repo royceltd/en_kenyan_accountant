@@ -1,4 +1,4 @@
-__version__ = "16.7.0"
+__version__ = "16.8.0"
 
 
 def check_app_permission():

@@ -168,6 +168,8 @@ def document_title(doc) -> str:
 		return "Tax Invoice" if flt(doc.get("total_taxes_and_charges")) else "Invoice"
 	if doc.doctype == "Purchase Invoice":
 		return "Debit Note" if doc.get("is_return") else "Purchase Invoice"
+	if doc.doctype == "Petty Cash Request":
+		return "Petty Cash Voucher"
 	if doc.doctype == "Payment Entry":
 		return {
 			"Receive": "Payment Receipt",
@@ -266,6 +268,11 @@ def amount_box(doc) -> frappe._dict:
 	submitted = cint(doc.get("docstatus")) == 1
 	box = frappe._dict(label="Total", amount=grand, currency=doc.get("currency"), note="", note_args=[])
 
+	if doc.doctype == "Petty Cash Request":
+		box.amount = flt(doc.get("total_amount"))
+		box.label = "Amount Paid" if doc.get("status") == "Paid" else "Amount Requested"
+		box.note = frappe.utils.money_in_words(box.amount, box.currency)
+		return box
 	if doc.doctype == "Payment Entry":
 		receiving = doc.get("payment_type") == "Receive"
 		box.amount = flt(doc.get("received_amount") if receiving else doc.get("paid_amount"))

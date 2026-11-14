@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "creation": "2026-11-15 10:00:00.000000",
+ "modified": "2026-11-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "owner": "Administrator",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "module": "Kenya Accounting",
+ "name": "Petty Cash Request Item",
+ "field_order": [
+  "item",
+  "description",
+  "qty",
+  "rate",
+  "amount",
+  "column_break_acc",
+  "expense_account",
+  "cost_center"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Optional: a non-stock expense item (stationery, fuel, repairs), which fills in the account."
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "What for",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "default": "1",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Price per Unit",
+   "options": "currency",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "options": "currency",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "column_break_acc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expense_account",
+   "fieldtype": "Link",
+   "label": "Expense Account",
+   "options": "Account",
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Set by the accounts office if the requester leaves it blank."
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "allow_on_submit": 1
+  }
+ ],
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
